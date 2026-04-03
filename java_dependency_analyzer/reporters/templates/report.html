@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java Dependency Vulnerability Report</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; color: #333; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #e74c3c; padding-bottom: 10px; }
+  h2 { color: #2c3e50; margin-top: 30px; }
+  .summary { display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0; }
+  .card {
+    background: #fff; border-radius: 8px; padding: 20px; min-width: 150px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1); text-align: center;
+    cursor: pointer; transition: box-shadow 0.2s, transform 0.15s, border 0.15s;
+    border: 2px solid transparent; user-select: none;
+  }
+  .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.18); transform: translateY(-2px); }
+  .card.active { border-color: #2980b9; box-shadow: 0 0 0 3px rgba(41,128,185,.25); }
+  .card .number { font-size: 2.5em; font-weight: bold; }
+  .card.danger .number { color: #e74c3c; }
+  .card.warning .number { color: #f39c12; }
+  .card.safe .number { color: #27ae60; }
+  .card .label { font-size: 0.85em; color: #666; margin-top: 4px; }
+  .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+  .filter-notice {
+    display: none; background: #eaf3fb; border-left: 4px solid #2980b9;
+    padding: 8px 14px; margin-bottom: 12px; border-radius: 4px;
+    font-size: 0.9em; color: #2c3e50;
+  }
+  .filter-notice.visible { display: flex; align-items: center; gap: 10px; }
+  .filter-notice button {
+    background: none; border: none; color: #2980b9; cursor: pointer;
+    font-size: 0.95em; padding: 0; text-decoration: underline;
+  }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+  thead { background: #2c3e50; color: #fff; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9f9f9; }
+  tr.hidden { display: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+  .badge-critical { background: #e74c3c; color: #fff; }
+  .badge-high { background: #e67e22; color: #fff; }
+  .badge-medium { background: #f39c12; color: #fff; }
+  .badge-low { background: #3498db; color: #fff; }
+  .badge-unknown { background: #95a5a6; color: #fff; }
+  .no-vulns { color: #27ae60; font-style: italic; }
+  a { color: #2980b9; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  details summary { cursor: pointer; font-weight: bold; color: #2c3e50; }
+  .vuln-row { background: #fff8f8; }
+  .vuln-cve { font-family: monospace; font-weight: bold; }
+  .footer { margin-top: 40px; text-align: center; color: #aaa; font-size: 0.8em; }
+  /* Dependency tree visuals */
+  .dep-name { white-space: nowrap; }
+  .dep-root > a { font-weight: 600; color: #2c3e50; }
+  .dep-root-dot { color: #2c3e50; margin-right: 6px; font-size: 1.1em; }
+  .tree-prefix { font-family: 'Courier New', monospace; color: #bbb; font-size: 0.9em; letter-spacing: 0; white-space: pre; }
+  .tree-connector { color: #aaa; font-family: 'Courier New', monospace; margin-right: 4px; }
+  tr[data-depth="0"] td:first-child { background: #fafafa; }
+  tr[data-depth="1"] td:first-child { background: #f5f8ff; }
+  tr[data-depth="2"] td:first-child { background: #f0f5ff; }
+</style>
+</head>
+<body>
+<h1>Java Dependency Vulnerability Report</h1>
+<p class="meta">
+  <strong>Source:</strong> {{ result.source_file }}&nbsp;&nbsp;
+  <strong>Scanned at:</strong> {{ result.scanned_at }}
+</p>
+
+<h2>Summary</h2>
+<div class="summary">
+  <div class="card active" data-filter="all">
+    <div class="number">{{ result.total_dependencies }}</div>
+    <div class="label">Total Dependencies</div>
+  </div>
+  <div class="card {% if result.total_vulnerabilities > 0 %}danger{% else %}safe{% endif %}" data-filter="has-vulns">
+    <div class="number">{{ result.total_vulnerabilities }}</div>
+    <div class="label">Total Vulnerabilities</div>
+  </div>
+  <div class="card {% if result.vulnerable_dependencies|length > 0 %}warning{% else %}safe{% endif %}" data-filter="has-vulns">
+    <div class="number">{{ result.vulnerable_dependencies|length }}</div>
+    <div class="label">Vulnerable Dependencies</div>
+  </div>
+</div>
+
+{% if result.total_vulnerabilities == 0 %}
+<p style="color: #27ae60; font-size: 1.1em;">&#x2714; No vulnerabilities found across all dependencies.</p>
+{% endif %}
+
+<h2>Dependency Tree</h2>
+<div class="filter-notice" id="filter-notice">
+  <span id="filter-notice-text"></span>
+  <button onclick="resetFilter()">Show all</button>
+</div>
+<table id="dep-table">
+  <thead>
+    <tr>
+      <th>Dependency</th>
+      <th>Version</th>
+      <th>Scope</th>
+      <th>Vulnerabilities</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for dep in all_deps %}
+    <tr class="dep-row" data-depth="{{ dep.depth }}" data-vuln-count="{{ dep.vulnerabilities | length }}">
+      <td class="dep-name">
+        {% if dep.depth == 0 %}
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/{{ dep.group_id | replace('.', '/') }}/{{ dep.artifact_id }}/{{ dep.version }}/"
+               target="_blank" rel="noopener noreferrer">{{ dep.group_id }}:{{ dep.artifact_id }}</a>
+          </span>
+        {% else %}
+          <span class="tree-prefix">{{ '    ' * (dep.depth - 1) }}</span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/{{ dep.group_id | replace('.', '/') }}/{{ dep.artifact_id }}/{{ dep.version }}/"
+             target="_blank" rel="noopener noreferrer">{{ dep.group_id }}:{{ dep.artifact_id }}</a>
+        {% endif %}
+      </td>
+      <td>{{ dep.version }}</td>
+      <td>{{ dep.scope }}</td>
+      <td>
+        {% if dep.vulnerabilities %}
+          {% for vuln in dep.vulnerabilities %}
+          <details>
+            <summary>
+              <span class="vuln-cve">{{ vuln.cve_id }}</span>
+              <span class="badge badge-{{ vuln.severity | lower | replace('cvss', '') | replace(' ', '') | truncate(8, true, '') }}">
+                {{ vuln.severity }}
+              </span>
+            </summary>
+            <p>{{ vuln.summary }}</p>
+            {% if vuln.affected_versions %}
+            <p><strong>Affected versions:</strong> {{ vuln.affected_versions | join(', ') }}</p>
+            {% endif %}
+            {% if vuln.reference_url %}
+            <p><a href="{{ vuln.reference_url }}" target="_blank" rel="noopener noreferrer">
+              More info &rarr;
+            </a></p>
+            {% endif %}
+            <p><em>Source: {{ vuln.source }}</em></p>
+          </details>
+          {% endfor %}
+        {% else %}
+          <span class="no-vulns">None found</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  Generated by Java Dependency Analyzer v1.0.0 &mdash; Ron Webb
+</div>
+
+<script>
+  const rows = Array.from(document.querySelectorAll('.dep-row'));
+  const notice = document.getElementById('filter-notice');
+  const noticeText = document.getElementById('filter-notice-text');
+
+  function applyFilter(filterType, labelText) {
+    rows.forEach(row => {
+      const vulnCount = parseInt(row.dataset.vulnCount || '0', 10);
+      if (filterType === 'all') {
+        row.classList.remove('hidden');
+      } else if (filterType === 'has-vulns') {
+        if (vulnCount > 0) {
+          row.classList.remove('hidden');
+        } else {
+          row.classList.add('hidden');
+        }
+      }
+    });
+
+    if (filterType === 'all') {
+      notice.classList.remove('visible');
+    } else {
+      const visible = rows.filter(r => !r.classList.contains('hidden')).length;
+      noticeText.textContent = `Showing ${visible} ${labelText}`;
+      notice.classList.add('visible');
+    }
+  }
+
+  function resetFilter() {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    document.querySelector('.card[data-filter="all"]').classList.add('active');
+    applyFilter('all', '');
+  }
+
+  document.querySelectorAll('.card[data-filter]').forEach(card => {
+    card.addEventListener('click', function () {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      const filter = this.dataset.filter;
+      const label = this.querySelector('.label').textContent;
+      applyFilter(filter, label.toLowerCase());
+    });
+  });
+</script>
+</body>
+</html>

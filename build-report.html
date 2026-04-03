@@ -1,0 +1,3225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java Dependency Vulnerability Report</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; color: #333; }
+  h1 { color: #2c3e50; border-bottom: 3px solid #e74c3c; padding-bottom: 10px; }
+  h2 { color: #2c3e50; margin-top: 30px; }
+  .summary { display: flex; gap: 20px; flex-wrap: wrap; margin: 20px 0; }
+  .card {
+    background: #fff; border-radius: 8px; padding: 20px; min-width: 150px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1); text-align: center;
+    cursor: pointer; transition: box-shadow 0.2s, transform 0.15s, border 0.15s;
+    border: 2px solid transparent; user-select: none;
+  }
+  .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.18); transform: translateY(-2px); }
+  .card.active { border-color: #2980b9; box-shadow: 0 0 0 3px rgba(41,128,185,.25); }
+  .card .number { font-size: 2.5em; font-weight: bold; }
+  .card.danger .number { color: #e74c3c; }
+  .card.warning .number { color: #f39c12; }
+  .card.safe .number { color: #27ae60; }
+  .card .label { font-size: 0.85em; color: #666; margin-top: 4px; }
+  .meta { color: #666; font-size: 0.9em; margin-bottom: 20px; }
+  .filter-notice {
+    display: none; background: #eaf3fb; border-left: 4px solid #2980b9;
+    padding: 8px 14px; margin-bottom: 12px; border-radius: 4px;
+    font-size: 0.9em; color: #2c3e50;
+  }
+  .filter-notice.visible { display: flex; align-items: center; gap: 10px; }
+  .filter-notice button {
+    background: none; border: none; color: #2980b9; cursor: pointer;
+    font-size: 0.95em; padding: 0; text-decoration: underline;
+  }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+  thead { background: #2c3e50; color: #fff; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #eee; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f9f9f9; }
+  tr.hidden { display: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+  .badge-critical { background: #e74c3c; color: #fff; }
+  .badge-high { background: #e67e22; color: #fff; }
+  .badge-medium { background: #f39c12; color: #fff; }
+  .badge-low { background: #3498db; color: #fff; }
+  .badge-unknown { background: #95a5a6; color: #fff; }
+  .no-vulns { color: #27ae60; font-style: italic; }
+  a { color: #2980b9; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  details summary { cursor: pointer; font-weight: bold; color: #2c3e50; }
+  .vuln-row { background: #fff8f8; }
+  .vuln-cve { font-family: monospace; font-weight: bold; }
+  .footer { margin-top: 40px; text-align: center; color: #aaa; font-size: 0.8em; }
+  /* Dependency tree visuals */
+  .dep-name { white-space: nowrap; }
+  .dep-root > a { font-weight: 600; color: #2c3e50; }
+  .dep-root-dot { color: #2c3e50; margin-right: 6px; font-size: 1.1em; }
+  .tree-prefix { font-family: 'Courier New', monospace; color: #bbb; font-size: 0.9em; letter-spacing: 0; white-space: pre; }
+  .tree-connector { color: #aaa; font-family: 'Courier New', monospace; margin-right: 4px; }
+  tr[data-depth="0"] td:first-child { background: #fafafa; }
+  tr[data-depth="1"] td:first-child { background: #f5f8ff; }
+  tr[data-depth="2"] td:first-child { background: #f0f5ff; }
+</style>
+</head>
+<body>
+<h1>Java Dependency Vulnerability Report</h1>
+<p class="meta">
+  <strong>Source:</strong> C:\dev\codes\apache-camel\build.gradle&nbsp;&nbsp;
+  <strong>Scanned at:</strong> 2026-04-03T15:45:35.604293
+</p>
+
+<h2>Summary</h2>
+<div class="summary">
+  <div class="card active" data-filter="all">
+    <div class="number">187</div>
+    <div class="label">Total Dependencies</div>
+  </div>
+  <div class="card danger" data-filter="has-vulns">
+    <div class="number">2</div>
+    <div class="label">Total Vulnerabilities</div>
+  </div>
+  <div class="card warning" data-filter="has-vulns">
+    <div class="number">1</div>
+    <div class="label">Vulnerable Dependencies</div>
+  </div>
+</div>
+
+
+
+<h2>Dependency Tree</h2>
+<div class="filter-notice" id="filter-notice">
+  <span id="filter-notice-text"></span>
+  <button onclick="resetFilter()">Show all</button>
+</div>
+<table id="dep-table">
+  <thead>
+    <tr>
+      <th>Dependency</th>
+      <th>Version</th>
+      <th>Scope</th>
+      <th>Vulnerabilities</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/4.0.4/"
+             target="_blank" rel="noopener noreferrer">jakarta.xml.bind:jakarta.xml.bind-api</a>
+        
+      </td>
+      <td>4.0.4</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-base-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-base-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-base/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-base</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-management-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-management-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-management-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-management-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util-json/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util-json</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-reifier/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-reifier</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-processor/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-processor</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-base-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-base-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="5" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">                </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-processor/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-processor</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-management-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-management-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-languages/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-languages</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-bean/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-bean</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-browse/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-browse</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-cluster/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-cluster</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-base-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-base-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-controlbus/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-controlbus</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-dataformat/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-dataformat</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-dataset/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-dataset</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-mock/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-mock</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-direct/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-direct</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-file/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-file</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-cluster/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-cluster</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/commons-codec/commons-codec/1.19.0/"
+             target="_blank" rel="noopener noreferrer">commons-codec:commons-codec</a>
+        
+      </td>
+      <td>1.19.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-health/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-health</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-language/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-language</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-log/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-log</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-mock/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-mock</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-ref/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-ref</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-rest/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-rest</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-saga/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-saga</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-scheduler/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-scheduler</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-seda/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-seda</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-stub/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-stub</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-seda/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-seda</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-timer/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-timer</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-validator/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-validator</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-io-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-io-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xpath/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xpath</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xslt/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xslt</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-io/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-io</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-io-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-io-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxb/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxb</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/4.0.4/"
+             target="_blank" rel="noopener noreferrer">jakarta.xml.bind:jakarta.xml.bind-api</a>
+        
+      </td>
+      <td>4.0.4</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.6/"
+             target="_blank" rel="noopener noreferrer">org.glassfish.jaxb:jaxb-runtime</a>
+        
+      </td>
+      <td>4.0.6</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-xml-jaxp/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-xml-jaxp</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-yaml-io/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-yaml-io</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-catalog/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-catalog</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-tooling-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-tooling-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util-json/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util-json</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util-json/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util-json</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.19.2/"
+             target="_blank" rel="noopener noreferrer">com.fasterxml.jackson.dataformat:jackson-dataformat-yaml</a>
+        
+      </td>
+      <td>2.19.2</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/yaml/snakeyaml/2.4/"
+             target="_blank" rel="noopener noreferrer">org.yaml:snakeyaml</a>
+        
+      </td>
+      <td>2.4</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/"
+             target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+        
+      </td>
+      <td>2.0.17</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-main/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-main</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-base/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-base</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-engine/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-engine</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-management-api/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-management-api</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-languages/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-languages</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-stream/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-stream</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-bean/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-bean</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-direct/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-direct</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-timer/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-timer</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-log/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-log</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-seda/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-seda</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-rest/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-rest</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/apache/camel/camel-netty-http/4.16.0/"
+               target="_blank" rel="noopener noreferrer">org.apache.camel:camel-netty-http</a>
+          </span>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-netty/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-netty</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-util-json/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-util-json</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-codec</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-handler</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-resolver</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-epoll</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-classes-epoll/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-classes-epoll</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-kqueue</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="3" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">        </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-classes-kqueue/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-classes-kqueue</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="4" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">            </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.12.1/"
+             target="_blank" rel="noopener noreferrer">org.apache.commons:commons-pool2</a>
+        
+      </td>
+      <td>2.12.1</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-buffer/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-buffer</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-codec/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-codec</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-handler</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-resolver/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-resolver</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-epoll/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-epoll</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-transport-native-unix-common</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="2">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/io/netty/netty-codec-http/4.1.128.Final/"
+             target="_blank" rel="noopener noreferrer">io.netty:netty-codec-http</a>
+        
+      </td>
+      <td>4.1.128.Final</td>
+      <td>compile</td>
+      <td>
+        
+          
+          <details>
+            <summary>
+              <span class="vuln-cve">GHSA-84h7-rjj3-6jx4</span>
+              <span class="badge badge-:3.1/av:">
+                CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:N
+              </span>
+            </summary>
+            <p>Netty has a CRLF Injection vulnerability in io.netty.handler.codec.http.HttpRequestEncoder</p>
+            
+            <p><strong>Affected versions:</strong> &gt;=4.2.0.Alpha1, &lt;4.2.8.Final, 4.2.0.Alpha1, 4.2.0.Alpha2, 4.2.0.Alpha3, 4.2.0.Alpha4, 4.2.0.Alpha5, 4.2.0.Beta1, 4.2.0.Final, 4.2.0.RC1, 4.2.0.RC2, 4.2.0.RC3, 4.2.0.RC4, 4.2.1.Final, 4.2.2.Final, 4.2.3.Final, 4.2.4.Final, 4.2.5.Final, 4.2.6.Final, 4.2.7.Final, &gt;=0, &lt;4.1.129.Final, 4.0.0.Alpha1, 4.0.0.Alpha2, 4.0.0.Alpha3, 4.0.0.Alpha4, 4.0.0.Alpha5, 4.0.0.Alpha6, 4.0.0.Alpha7, 4.0.0.Alpha8, 4.0.0.Beta1, 4.0.0.Beta2, 4.0.0.Beta3, 4.0.0.CR1, 4.0.0.CR2, 4.0.0.CR3, 4.0.0.CR4, 4.0.0.CR5, 4.0.0.CR6, 4.0.0.CR7, 4.0.0.CR8, 4.0.0.CR9, 4.0.0.Final, 4.0.1.Final, 4.0.10.Final, 4.0.11.Final, 4.0.12.Final, 4.0.13.Final, 4.0.14.Beta1, 4.0.14.Final, 4.0.15.Final, 4.0.16.Final, 4.0.17.Final, 4.0.18.Final, 4.0.19.Final, 4.0.2.Final, 4.0.20.Final, 4.0.21.Final, 4.0.22.Final, 4.0.23.Final, 4.0.24.Final, 4.0.25.Final, 4.0.26.Final, 4.0.27.Final, 4.0.28.Final, 4.0.29.Final, 4.0.3.Final, 4.0.30.Final, 4.0.31.Final, 4.0.32.Final, 4.0.33.Final, 4.0.34.Final, 4.0.35.Final, 4.0.36.Final, 4.0.37.Final, 4.0.38.Final, 4.0.39.Final, 4.0.4.Final, 4.0.40.Final, 4.0.41.Final, 4.0.42.Final, 4.0.43.Final, 4.0.44.Final, 4.0.45.Final, 4.0.46.Final, 4.0.47.Final, 4.0.48.Final, 4.0.49.Final, 4.0.5.Final, 4.0.50.Final, 4.0.51.Final, 4.0.52.Final, 4.0.53.Final, 4.0.54.Final, 4.0.55.Final, 4.0.56.Final, 4.0.6.Final, 4.0.7.Final, 4.0.8.Final, 4.0.9.Final, 4.1.0.Beta1, 4.1.0.Beta2, 4.1.0.Beta3, 4.1.0.Beta4, 4.1.0.Beta5, 4.1.0.Beta6, 4.1.0.Beta7, 4.1.0.Beta8, 4.1.0.CR1, 4.1.0.CR2, 4.1.0.CR3, 4.1.0.CR4, 4.1.0.CR5, 4.1.0.CR6, 4.1.0.CR7, 4.1.0.Final, 4.1.1.Final, 4.1.10.Final, 4.1.100.Final, 4.1.101.Final, 4.1.102.Final, 4.1.103.Final, 4.1.104.Final, 4.1.105.Final, 4.1.106.Final, 4.1.107.Final, 4.1.108.Final, 4.1.109.Final, 4.1.11.Final, 4.1.110.Final, 4.1.111.Final, 4.1.112.Final, 4.1.113.Final, 4.1.114.Final, 4.1.115.Final, 4.1.116.Final, 4.1.117.Final, 4.1.118.Final, 4.1.119.Final, 4.1.12.Final, 4.1.120.Final, 4.1.121.Final, 4.1.122.Final, 4.1.123.Final, 4.1.124.Final, 4.1.125.Final, 4.1.126.Final, 4.1.127.Final, 4.1.128.Final, 4.1.13.Final, 4.1.14.Final, 4.1.15.Final, 4.1.16.Final, 4.1.17.Final, 4.1.18.Final, 4.1.19.Final, 4.1.2.Final, 4.1.20.Final, 4.1.21.Final, 4.1.22.Final, 4.1.23.Final, 4.1.24.Final, 4.1.25.Final, 4.1.26.Final, 4.1.27.Final, 4.1.28.Final, 4.1.29.Final, 4.1.3.Final, 4.1.30.Final, 4.1.31.Final, 4.1.32.Final, 4.1.33.Final, 4.1.34.Final, 4.1.35.Final, 4.1.36.Final, 4.1.37.Final, 4.1.38.Final, 4.1.39.Final, 4.1.4.Final, 4.1.40.Final, 4.1.41.Final, 4.1.42.Final, 4.1.43.Final, 4.1.44.Final, 4.1.45.Final, 4.1.46.Final, 4.1.47.Final, 4.1.48.Final, 4.1.49.Final, 4.1.5.Final, 4.1.50.Final, 4.1.51.Final, 4.1.52.Final, 4.1.53.Final, 4.1.54.Final, 4.1.55.Final, 4.1.56.Final, 4.1.57.Final, 4.1.58.Final, 4.1.59.Final, 4.1.6.Final, 4.1.60.Final, 4.1.61.Final, 4.1.62.Final, 4.1.63.Final, 4.1.64.Final, 4.1.65.Final, 4.1.66.Final, 4.1.67.Final, 4.1.68.Final, 4.1.69.Final, 4.1.7.Final, 4.1.70.Final, 4.1.71.Final, 4.1.72.Final, 4.1.73.Final, 4.1.74.Final, 4.1.75.Final, 4.1.76.Final, 4.1.77.Final, 4.1.78.Final, 4.1.79.Final, 4.1.8.Final, 4.1.80.Final, 4.1.81.Final, 4.1.82.Final, 4.1.83.Final, 4.1.84.Final, 4.1.85.Final, 4.1.86.Final, 4.1.87.Final, 4.1.88.Final, 4.1.89.Final, 4.1.9.Final, 4.1.90.Final, 4.1.91.Final, 4.1.92.Final, 4.1.93.Final, 4.1.94.Final, 4.1.95.Final, 4.1.96.Final, 4.1.97.Final, 4.1.98.Final, 4.1.99.Final</p>
+            
+            
+            <p><a href="https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4" target="_blank" rel="noopener noreferrer">
+              More info &rarr;
+            </a></p>
+            
+            <p><em>Source: osv</em></p>
+          </details>
+          
+          <details>
+            <summary>
+              <span class="vuln-cve">GHSA-pwqr-wmgm-9rr8</span>
+              <span class="badge badge-:3.1/av:">
+                CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+              </span>
+            </summary>
+            <p>Netty: HTTP Request Smuggling via Chunked Extension Quoted-String Parsing</p>
+            
+            <p><strong>Affected versions:</strong> &gt;=0, &lt;4.1.132.Final, 4.0.0.Alpha1, 4.0.0.Alpha2, 4.0.0.Alpha3, 4.0.0.Alpha4, 4.0.0.Alpha5, 4.0.0.Alpha6, 4.0.0.Alpha7, 4.0.0.Alpha8, 4.0.0.Beta1, 4.0.0.Beta2, 4.0.0.Beta3, 4.0.0.CR1, 4.0.0.CR2, 4.0.0.CR3, 4.0.0.CR4, 4.0.0.CR5, 4.0.0.CR6, 4.0.0.CR7, 4.0.0.CR8, 4.0.0.CR9, 4.0.0.Final, 4.0.1.Final, 4.0.10.Final, 4.0.11.Final, 4.0.12.Final, 4.0.13.Final, 4.0.14.Beta1, 4.0.14.Final, 4.0.15.Final, 4.0.16.Final, 4.0.17.Final, 4.0.18.Final, 4.0.19.Final, 4.0.2.Final, 4.0.20.Final, 4.0.21.Final, 4.0.22.Final, 4.0.23.Final, 4.0.24.Final, 4.0.25.Final, 4.0.26.Final, 4.0.27.Final, 4.0.28.Final, 4.0.29.Final, 4.0.3.Final, 4.0.30.Final, 4.0.31.Final, 4.0.32.Final, 4.0.33.Final, 4.0.34.Final, 4.0.35.Final, 4.0.36.Final, 4.0.37.Final, 4.0.38.Final, 4.0.39.Final, 4.0.4.Final, 4.0.40.Final, 4.0.41.Final, 4.0.42.Final, 4.0.43.Final, 4.0.44.Final, 4.0.45.Final, 4.0.46.Final, 4.0.47.Final, 4.0.48.Final, 4.0.49.Final, 4.0.5.Final, 4.0.50.Final, 4.0.51.Final, 4.0.52.Final, 4.0.53.Final, 4.0.54.Final, 4.0.55.Final, 4.0.56.Final, 4.0.6.Final, 4.0.7.Final, 4.0.8.Final, 4.0.9.Final, 4.1.0.Beta1, 4.1.0.Beta2, 4.1.0.Beta3, 4.1.0.Beta4, 4.1.0.Beta5, 4.1.0.Beta6, 4.1.0.Beta7, 4.1.0.Beta8, 4.1.0.CR1, 4.1.0.CR2, 4.1.0.CR3, 4.1.0.CR4, 4.1.0.CR5, 4.1.0.CR6, 4.1.0.CR7, 4.1.0.Final, 4.1.1.Final, 4.1.10.Final, 4.1.100.Final, 4.1.101.Final, 4.1.102.Final, 4.1.103.Final, 4.1.104.Final, 4.1.105.Final, 4.1.106.Final, 4.1.107.Final, 4.1.108.Final, 4.1.109.Final, 4.1.11.Final, 4.1.110.Final, 4.1.111.Final, 4.1.112.Final, 4.1.113.Final, 4.1.114.Final, 4.1.115.Final, 4.1.116.Final, 4.1.117.Final, 4.1.118.Final, 4.1.119.Final, 4.1.12.Final, 4.1.120.Final, 4.1.121.Final, 4.1.122.Final, 4.1.123.Final, 4.1.124.Final, 4.1.125.Final, 4.1.126.Final, 4.1.127.Final, 4.1.128.Final, 4.1.129.Final, 4.1.13.Final, 4.1.130.Final, 4.1.131.Final, 4.1.14.Final, 4.1.15.Final, 4.1.16.Final, 4.1.17.Final, 4.1.18.Final, 4.1.19.Final, 4.1.2.Final, 4.1.20.Final, 4.1.21.Final, 4.1.22.Final, 4.1.23.Final, 4.1.24.Final, 4.1.25.Final, 4.1.26.Final, 4.1.27.Final, 4.1.28.Final, 4.1.29.Final, 4.1.3.Final, 4.1.30.Final, 4.1.31.Final, 4.1.32.Final, 4.1.33.Final, 4.1.34.Final, 4.1.35.Final, 4.1.36.Final, 4.1.37.Final, 4.1.38.Final, 4.1.39.Final, 4.1.4.Final, 4.1.40.Final, 4.1.41.Final, 4.1.42.Final, 4.1.43.Final, 4.1.44.Final, 4.1.45.Final, 4.1.46.Final, 4.1.47.Final, 4.1.48.Final, 4.1.49.Final, 4.1.5.Final, 4.1.50.Final, 4.1.51.Final, 4.1.52.Final, 4.1.53.Final, 4.1.54.Final, 4.1.55.Final, 4.1.56.Final, 4.1.57.Final, 4.1.58.Final, 4.1.59.Final, 4.1.6.Final, 4.1.60.Final, 4.1.61.Final, 4.1.62.Final, 4.1.63.Final, 4.1.64.Final, 4.1.65.Final, 4.1.66.Final, 4.1.67.Final, 4.1.68.Final, 4.1.69.Final, 4.1.7.Final, 4.1.70.Final, 4.1.71.Final, 4.1.72.Final, 4.1.73.Final, 4.1.74.Final, 4.1.75.Final, 4.1.76.Final, 4.1.77.Final, 4.1.78.Final, 4.1.79.Final, 4.1.8.Final, 4.1.80.Final, 4.1.81.Final, 4.1.82.Final, 4.1.83.Final, 4.1.84.Final, 4.1.85.Final, 4.1.86.Final, 4.1.87.Final, 4.1.88.Final, 4.1.89.Final, 4.1.9.Final, 4.1.90.Final, 4.1.91.Final, 4.1.92.Final, 4.1.93.Final, 4.1.94.Final, 4.1.95.Final, 4.1.96.Final, 4.1.97.Final, 4.1.98.Final, 4.1.99.Final, &gt;=4.2.0.Alpha1, &lt;4.2.10.Final, 4.2.0.Alpha1, 4.2.0.Alpha2, 4.2.0.Alpha3, 4.2.0.Alpha4, 4.2.0.Alpha5, 4.2.0.Beta1, 4.2.0.Final, 4.2.0.RC1, 4.2.0.RC2, 4.2.0.RC3, 4.2.0.RC4, 4.2.1.Final, 4.2.2.Final, 4.2.3.Final, 4.2.4.Final, 4.2.5.Final, 4.2.6.Final, 4.2.7.Final, 4.2.8.Final, 4.2.9.Final</p>
+            
+            
+            <p><a href="https://github.com/netty/netty/security/advisories/GHSA-pwqr-wmgm-9rr8" target="_blank" rel="noopener noreferrer">
+              More info &rarr;
+            </a></p>
+            
+            <p><em>Source: osv</em></p>
+          </details>
+          
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-http-base/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-http-base</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-support/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-support</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="1" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix"></span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-cloud/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-cloud</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="2" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="tree-prefix">    </span><span class="tree-connector">└─</span><a href="https://repo1.maven.org/maven2/org/apache/camel/camel-core-model/4.16.0/"
+             target="_blank" rel="noopener noreferrer">org.apache.camel:camel-core-model</a>
+        
+      </td>
+      <td>4.16.0</td>
+      <td>compile</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.12/"
+               target="_blank" rel="noopener noreferrer">org.slf4j:slf4j-api</a>
+          </span>
+        
+      </td>
+      <td>2.0.12</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+    <tr class="dep-row" data-depth="0" data-vuln-count="0">
+      <td class="dep-name">
+        
+          <span class="dep-root">
+            <span class="dep-root-dot">&#9679;</span>
+            <a href="https://repo1.maven.org/maven2/ch/qos/logback/logback-classic/1.5.26/"
+               target="_blank" rel="noopener noreferrer">ch.qos.logback:logback-classic</a>
+          </span>
+        
+      </td>
+      <td>1.5.26</td>
+      <td>implementation</td>
+      <td>
+        
+          <span class="no-vulns">None found</span>
+        
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
+
+<div class="footer">
+  Generated by Java Dependency Analyzer v1.0.0 &mdash; Ron Webb
+</div>
+
+<script>
+  const rows = Array.from(document.querySelectorAll('.dep-row'));
+  const notice = document.getElementById('filter-notice');
+  const noticeText = document.getElementById('filter-notice-text');
+
+  function applyFilter(filterType, labelText) {
+    rows.forEach(row => {
+      const vulnCount = parseInt(row.dataset.vulnCount || '0', 10);
+      if (filterType === 'all') {
+        row.classList.remove('hidden');
+      } else if (filterType === 'has-vulns') {
+        if (vulnCount > 0) {
+          row.classList.remove('hidden');
+        } else {
+          row.classList.add('hidden');
+        }
+      }
+    });
+
+    if (filterType === 'all') {
+      notice.classList.remove('visible');
+    } else {
+      const visible = rows.filter(r => !r.classList.contains('hidden')).length;
+      noticeText.textContent = `Showing ${visible} ${labelText}`;
+      notice.classList.add('visible');
+    }
+  }
+
+  function resetFilter() {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    document.querySelector('.card[data-filter="all"]').classList.add('active');
+    applyFilter('all', '');
+  }
+
+  document.querySelectorAll('.card[data-filter]').forEach(card => {
+    card.addEventListener('click', function () {
+      document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      const filter = this.dataset.filter;
+      const label = this.querySelector('.label').textContent;
+      applyFilter(filter, label.toLowerCase());
+    });
+  });
+</script>
+</body>
+</html>
