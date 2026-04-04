@@ -43,7 +43,9 @@ class MavenParser(DependencyParser):
         """
         _logger.info("Parsing Maven POM: %s", file_path)
         try:
-            tree = etree.parse(file_path)  # nosec B320  # pylint: disable=c-extension-no-member
+            tree = etree.parse(
+                file_path
+            )  # nosec B320  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.error("Failed to parse POM XML: %s", exc)
             return []
@@ -88,7 +90,9 @@ class MavenParser(DependencyParser):
         props_el = root.find(self._tag("properties", namespace))
         if props_el is not None:
             for child in props_el:
-                local = etree.QName(child.tag).localname  # pylint: disable=c-extension-no-member
+                local = etree.QName(
+                    child.tag
+                ).localname  # pylint: disable=c-extension-no-member
                 if child.text:
                     props[local] = child.text.strip()
 
@@ -153,9 +157,12 @@ class MavenParser(DependencyParser):
         :author: Ron Webb
         :since: 1.0.0
         """
+
         def text(tag: str) -> str:
             child_el = dep_el.find(self._tag(tag, namespace))
-            raw = child_el.text.strip() if child_el is not None and child_el.text else ""
+            raw = (
+                child_el.text.strip() if child_el is not None and child_el.text else ""
+            )
             return self._resolve_value(raw, properties)
 
         group_id = text("groupId")
@@ -167,7 +174,9 @@ class MavenParser(DependencyParser):
             return None
 
         if scope not in RUNTIME_SCOPES:
-            _logger.debug("Skipping dependency %s:%s (scope=%s)", group_id, artifact_id, scope)
+            _logger.debug(
+                "Skipping dependency %s:%s (scope=%s)", group_id, artifact_id, scope
+            )
             return None
 
         if not version:

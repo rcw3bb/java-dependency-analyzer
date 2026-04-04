@@ -56,9 +56,7 @@ class GradleDepTreeParser(DepTreeParser):
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _line_to_entry(
-        self, line: str
-    ) -> tuple[int, bool, Dependency] | None:
+    def _line_to_entry(self, line: str) -> tuple[int, bool, Dependency] | None:
         """
         Convert a single Gradle dep-tree line to a ``(depth, is_leaf, dep)``
         entry, or return *None* to skip the line.

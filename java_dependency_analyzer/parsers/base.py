@@ -21,7 +21,9 @@ __since__ = "1.0.0"
 _logger = setup_logger(__name__)
 
 # Runtime scopes that contribute to the executable classpath
-RUNTIME_SCOPES = frozenset({"compile", "runtime", "implementation", "api", "runtimeOnly"})
+RUNTIME_SCOPES = frozenset(
+    {"compile", "runtime", "implementation", "api", "runtimeOnly"}
+)
 
 
 def attach_node(
@@ -138,9 +140,7 @@ class DepTreeParser(DependencyParser):
         return build_tree_from_lines(lines, self._line_to_entry)
 
     @abstractmethod
-    def _line_to_entry(
-        self, line: str
-    ) -> tuple[int, bool, Dependency] | None:
+    def _line_to_entry(self, line: str) -> tuple[int, bool, Dependency] | None:
         """
         Convert a single dependency-tree text line into a
         ``(depth, is_leaf, dep)`` tuple, or return *None* to skip the line.

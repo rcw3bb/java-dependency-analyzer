@@ -97,7 +97,8 @@ class GhsaScanner(VulnerabilityScanner):
             response = self._client.get(_GHSA_API_URL, params=params)
             if response.status_code == 429:
                 _logger.warning(
-                    "GitHub Advisory API rate limit exceeded for %s", dependency.coordinates
+                    "GitHub Advisory API rate limit exceeded for %s",
+                    dependency.coordinates,
                 )
                 return []
             response.raise_for_status()

@@ -139,12 +139,13 @@ class GradleParser(DependencyParser):
         :author: Ron Webb
         :since: 1.0.0
         """
+
         def _replacer(match: re.Match) -> str:
             return props.get(match.group(1), match.group(0))
 
         return re.sub(r"\$\{(\w+)\}", _replacer, content)
 
-    def _strip_comments(self, content: str, is_kotlin_dsl: bool) -> str:  # pylint: disable=unused-argument
+    def _strip_comments(self, content: str, _is_kotlin_dsl: bool) -> str:
         """
         Remove single-line (//) and block (/* */) comments from the file content.
 
@@ -165,7 +166,12 @@ class GradleParser(DependencyParser):
         :since: 1.0.0
         """
         deps: list[Dependency] = []
-        for pattern in (_GROOVY_SHORTHAND, _KOTLIN_SHORTHAND, _GROOVY_BLOCK, _KOTLIN_BLOCK):
+        for pattern in (
+            _GROOVY_SHORTHAND,
+            _KOTLIN_SHORTHAND,
+            _GROOVY_BLOCK,
+            _KOTLIN_BLOCK,
+        ):
             for match in pattern.finditer(content):
                 dep = self._match_to_dependency(match)
                 if dep is not None:
@@ -194,10 +200,14 @@ class GradleParser(DependencyParser):
 
         # Skip variable references that couldn't be resolved
         if "$" in version:
-            _logger.debug("Skipping %s:%s — unresolved version: %s", group, artifact, version)
+            _logger.debug(
+                "Skipping %s:%s — unresolved version: %s", group, artifact, version
+            )
             return None
 
-        _logger.debug("Found dependency: %s:%s:%s (scope=%s)", group, artifact, version, scope)
+        _logger.debug(
+            "Found dependency: %s:%s:%s (scope=%s)", group, artifact, version, scope
+        )
         return Dependency(
             group_id=group,
             artifact_id=artifact,

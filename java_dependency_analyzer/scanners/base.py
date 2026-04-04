@@ -83,9 +83,7 @@ class VulnerabilityScanner(ABC):
                 payload,
             )
 
-    def _apply_cache_source(
-        self, data: str, source: str
-    ) -> list[Vulnerability]:
+    def _apply_cache_source(self, data: str, source: str) -> list[Vulnerability]:
         """
         Deserialise *data* (a cached JSON string), parse into ``Vulnerability``
         objects, and mark each with ``source = "<source>-cache"``.

@@ -71,7 +71,9 @@ class TransitiveResolver:
             _visited = set()
 
         if depth >= _MAX_DEPTH:
-            _logger.debug("Max depth %d reached at %s", _MAX_DEPTH, dependency.coordinates)
+            _logger.debug(
+                "Max depth %d reached at %s", _MAX_DEPTH, dependency.coordinates
+            )
             return dependency
 
         key = dependency.coordinates
@@ -132,8 +134,7 @@ class TransitiveResolver:
         :since: 1.0.0
         """
         return (
-            f"{_MAVEN_CENTRAL}/{dep.maven_path}"
-            f"/{dep.artifact_id}-{dep.version}.pom"
+            f"{_MAVEN_CENTRAL}/{dep.maven_path}" f"/{dep.artifact_id}-{dep.version}.pom"
         )
 
     def _fetch_pom(self, url: str) -> bytes | None:
@@ -162,7 +163,9 @@ class TransitiveResolver:
         :since: 1.0.0
         """
         try:
-            root = etree.fromstring(pom_content)  # nosec B320  # pylint: disable=c-extension-no-member
+            root = etree.fromstring(
+                pom_content
+            )  # nosec B320  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.warning("Could not parse POM for %s: %s", parent.coordinates, exc)
             return []
@@ -171,7 +174,9 @@ class TransitiveResolver:
         ns_prefix = "m:" if root.tag.startswith("{") else ""
 
         def find(node: etree._Element, tag: str) -> etree._Element | None:
-            return node.find(f"{ns_prefix}{tag}", ns_map) if ns_prefix else node.find(tag)
+            return (
+                node.find(f"{ns_prefix}{tag}", ns_map) if ns_prefix else node.find(tag)
+            )
 
         def text(node: etree._Element, tag: str) -> str:
             child = find(node, tag)
@@ -213,15 +218,15 @@ class TransitiveResolver:
         """
         props: dict[str, str] = {}
         props_el = (
-            root.find("m:properties", ns_map)
-            if ns_prefix
-            else root.find("properties")
+            root.find("m:properties", ns_map) if ns_prefix else root.find("properties")
         )
         if props_el is not None:
             for child in props_el:
                 if not isinstance(child.tag, str):  # skip comments and PIs
                     continue
-                local = etree.QName(child.tag).localname  # pylint: disable=c-extension-no-member
+                local = etree.QName(
+                    child.tag
+                ).localname  # pylint: disable=c-extension-no-member
                 if child.text:
                     props[local] = child.text.strip()
         return props
