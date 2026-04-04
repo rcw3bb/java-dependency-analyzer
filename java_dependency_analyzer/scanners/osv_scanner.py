@@ -7,8 +7,11 @@ Queries the OSV.dev API to get vulnerability information for Maven packages.
 :since: 1.0.0
 """
 
+import json
+
 import httpx
 
+from ..cache.vulnerability_cache import VulnerabilityCache
 from ..models.dependency import Dependency, Vulnerability
 from ..util.logger import setup_logger
 from .base import VulnerabilityScanner
@@ -20,6 +23,7 @@ _logger = setup_logger(__name__)
 
 _OSV_QUERY_URL = "https://api.osv.dev/v1/query"
 _OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
+_OSV_VULN_URL = "https://osv.dev/vulnerability/"
 
 
 class OsvScanner(VulnerabilityScanner):
@@ -31,14 +35,21 @@ class OsvScanner(VulnerabilityScanner):
     :since: 1.0.0
     """
 
-    def __init__(self, client: httpx.Client | None = None) -> None:
+    def __init__(
+        self,
+        client: httpx.Client | None = None,
+        cache: VulnerabilityCache | None = None,
+    ) -> None:
         """
-        Initialise the scanner with an optional shared httpx client.
+        Initialise the scanner with an optional shared httpx client and cache.
+
+        When *cache* is provided, scan results are read from and written to it.
 
         :author: Ron Webb
         :since: 1.0.0
         """
         self._client = client or httpx.Client(timeout=30)
+        self._cache = cache
 
     def scan(self, dependency: Dependency) -> list[Vulnerability]:
         """
@@ -47,6 +58,11 @@ class OsvScanner(VulnerabilityScanner):
         :author: Ron Webb
         :since: 1.0.0
         """
+        _logger.debug("Querying OSV for %s", dependency.coordinates)
+        cached = self._get_cached("osv", dependency)
+        if cached is not None:
+            return self._apply_cache_source(cached, "osv")
+
         payload = {
             "version": dependency.version,
             "package": {
@@ -54,7 +70,6 @@ class OsvScanner(VulnerabilityScanner):
                 "ecosystem": "Maven",
             },
         }
-        _logger.debug("Querying OSV for %s", dependency.coordinates)
         try:
             response = self._client.post(_OSV_QUERY_URL, json=payload)
             response.raise_for_status()
@@ -63,6 +78,7 @@ class OsvScanner(VulnerabilityScanner):
             _logger.warning("OSV query failed for %s: %s", dependency.coordinates, exc)
             return []
 
+        self._put_cached("osv", dependency, json.dumps(data))
         return self._parse_response(data)
 
     def _parse_response(self, data: dict) -> list[Vulnerability]:
@@ -148,4 +164,4 @@ class OsvScanner(VulnerabilityScanner):
         for ref in vuln.get("references", []):
             if ref.get("type") == "WEB":
                 return ref.get("url", "")
-        return f"https://osv.dev/vulnerability/{vuln_id}"
+        return f"{_OSV_VULN_URL}{vuln_id}"

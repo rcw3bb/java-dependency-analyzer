@@ -11,55 +11,18 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 ## Tree
 
 - `java_dependency_analyzer/` — main package; all new modules go here
-- `java_dependency_analyzer/__init__.py` — package init with `__author__` and `__since__`
 - `java_dependency_analyzer/util/` — utility sub-package
-- `java_dependency_analyzer/util/__init__.py` — util package init
-- `java_dependency_analyzer/util/logger.py` — `setup_logger(name)` for consistent logging via `logging.ini`
 - `java_dependency_analyzer/models/` — data model sub-package
-- `java_dependency_analyzer/models/__init__.py` — models package init
-- `java_dependency_analyzer/models/dependency.py` — `Vulnerability` and `Dependency` dataclasses
-- `java_dependency_analyzer/models/report.py` — `ScanResult` dataclass with computed summary properties
 - `java_dependency_analyzer/parsers/` — parser sub-package
-- `java_dependency_analyzer/parsers/__init__.py` — parsers package init
-- `java_dependency_analyzer/parsers/base.py` — `DependencyParser` ABC and `RUNTIME_SCOPES` constant
-- `java_dependency_analyzer/parsers/maven_parser.py` — `MavenParser` for pom.xml files
-- `java_dependency_analyzer/parsers/gradle_parser.py` — `GradleParser` for build.gradle and build.gradle.kts
 - `java_dependency_analyzer/resolvers/` — resolver sub-package
-- `java_dependency_analyzer/resolvers/__init__.py` — resolvers package init
-- `java_dependency_analyzer/resolvers/transitive.py` — `TransitiveResolver` using Maven Central POM fetching
 - `java_dependency_analyzer/scanners/` — vulnerability scanner sub-package
-- `java_dependency_analyzer/scanners/__init__.py` — scanners package init
-- `java_dependency_analyzer/scanners/base.py` — `VulnerabilityScanner` ABC
-- `java_dependency_analyzer/scanners/osv_scanner.py` — `OsvScanner` querying OSV.dev API
-- `java_dependency_analyzer/scanners/mvn_repository.py` — `MvnRepositoryScanner` scraping mvnrepository.com
+- `java_dependency_analyzer/cache/` — SQLite cache sub-package
 - `java_dependency_analyzer/reporters/` — report writer sub-package
-- `java_dependency_analyzer/reporters/__init__.py` — reporters package init
-- `java_dependency_analyzer/reporters/base.py` — `Reporter` ABC
-- `java_dependency_analyzer/reporters/json_reporter.py` — `JsonReporter` outputting JSON
-- `java_dependency_analyzer/reporters/html_reporter.py` — `HtmlReporter` rendering Jinja2 HTML
-- `java_dependency_analyzer/reporters/templates/report.html` — Jinja2 HTML report template
-- `java_dependency_analyzer/cli.py` — Click CLI entry point (`jda` command)
+- `java_dependency_analyzer/reporters/templates/` — Jinja2 HTML report templates
+- `java_dependency_analyzer/cli.py` — Click CLI entry point (`jda` group with `gradle` and `maven` subcommands)
 - `tests/` — test package mirroring the main package structure; all tests go here
-- `tests/__init__.py` — test package init
-- `tests/models/__init__.py` — models test package init
-- `tests/models/test_dependency.py` — tests for `Vulnerability` and `Dependency`
-- `tests/models/test_report.py` — tests for `ScanResult`
-- `tests/parsers/__init__.py` — parsers test package init
-- `tests/parsers/test_maven_parser.py` — tests for `MavenParser`
-- `tests/parsers/test_gradle_parser.py` — tests for `GradleParser`
-- `tests/resolvers/__init__.py` — resolvers test package init
-- `tests/resolvers/test_transitive.py` — tests for `TransitiveResolver` (uses pytest-httpx)
-- `tests/scanners/__init__.py` — scanners test package init
-- `tests/scanners/test_osv_scanner.py` — tests for `OsvScanner` (uses pytest-httpx)
-- `tests/scanners/test_mvn_repository.py` — tests for `MvnRepositoryScanner` (uses pytest-httpx)
-- `tests/reporters/__init__.py` — reporters test package init
-- `tests/reporters/test_json_reporter.py` — tests for `JsonReporter`
-- `tests/reporters/test_html_reporter.py` — tests for `HtmlReporter`
-- `tests/test_cli.py` — end-to-end CLI tests (uses pytest-httpx)
-- `tests/fixtures/sample_pom.xml` — sample Maven POM fixture with properties and varied scopes
-- `tests/fixtures/no_namespace_pom.xml` — POM fixture without Maven namespace
-- `tests/fixtures/sample_build.gradle` — Groovy DSL Gradle fixture
-- `tests/fixtures/sample_build.gradle.kts` — Kotlin DSL Gradle fixture
+- `tests/conftest.py` — global pytest fixtures; activates `httpx_mock` for every test to block all real HTTP calls
+- `tests/fixtures/` — sample fixture files for parsers and CLI tests
 - `pyproject.toml` — Poetry PEP 621 project config; use `poetry add` / `poetry add --dev`
 - `logging.ini` — logging config (FileHandler + StreamHandler); log file: `java_dependency_analyzer.log`
 - `.pylintrc` — Pylint config based on rcw3bb's gist

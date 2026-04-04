@@ -1,0 +1,18 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< xyz.ronella.sample:sample-project >-----------------
+[INFO] Building Sample Project 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ sample-project ---
+[INFO] xyz.ronella.sample:sample-project:jar:1.0-SNAPSHOT
+[INFO] +- org.springframework:spring-core:jar:5.3.39:compile
+[INFO] |  \- org.springframework:spring-jcl:jar:5.3.39:compile
+[INFO] +- org.slf4j:slf4j-api:jar:2.0.13:compile
+[INFO] +- commons-io:commons-io:jar:2.15.1:compile
+[INFO] \- ch.qos.logback:logback-classic:jar:1.4.14:compile
+[INFO]    +- ch.qos.logback:logback-core:jar:1.4.14:compile
+[INFO]    \- org.slf4j:slf4j-api:jar:2.0.13:compile
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------

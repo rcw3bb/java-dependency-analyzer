@@ -62,3 +62,4 @@ Desktop.ini
 # Distribution / packaging
 *.manifest
 *.spec
+reports/

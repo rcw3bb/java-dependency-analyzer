@@ -42,19 +42,23 @@ class ScanResult:
     @property
     def vulnerable_dependencies(self) -> list[Dependency]:
         """
-        Return a flat list of all dependencies that have vulnerabilities.
+        Return a deduplicated flat list of all dependencies that have vulnerabilities.
+
+        Two nodes with identical (group_id, artifact_id, version) are treated as the
+        same dependency regardless of where they appear in the tree.
 
         :author: Ron Webb
         :since: 1.0.0
         """
         result: list[Dependency] = []
-        self._collect_vulnerable(self.dependencies, result)
+        seen: set[tuple[str, str, str]] = set()
+        self._collect_vulnerable(self.dependencies, result, seen)
         return result
 
     @property
     def total_vulnerabilities(self) -> int:
         """
-        Return the total number of individual vulnerabilities found.
+        Return the total number of individual vulnerabilities found across unique dependencies.
 
         :author: Ron Webb
         :since: 1.0.0
@@ -73,16 +77,32 @@ class ScanResult:
             count += self._count_dependencies(dep.transitive_dependencies)
         return count
 
+    @staticmethod
+    def _dep_key(dep: Dependency) -> tuple[str, str, str]:
+        """
+        Return a deduplication key for a dependency based on its coordinates.
+
+        :author: Ron Webb
+        :since: 1.0.0
+        """
+        return (dep.group_id, dep.artifact_id, dep.version)
+
     def _collect_vulnerable(
-        self, deps: list[Dependency], result: list[Dependency]
+        self,
+        deps: list[Dependency],
+        result: list[Dependency],
+        seen: set[tuple[str, str, str]],
     ) -> None:
         """
-        Recursively collect all dependencies that have vulnerabilities.
+        Recursively collect unique dependencies that have vulnerabilities.
 
         :author: Ron Webb
         :since: 1.0.0
         """
         for dep in deps:
             if dep.vulnerabilities:
-                result.append(dep)
-            self._collect_vulnerable(dep.transitive_dependencies, result)
+                key = self._dep_key(dep)
+                if key not in seen:
+                    seen.add(key)
+                    result.append(dep)
+            self._collect_vulnerable(dep.transitive_dependencies, result, seen)

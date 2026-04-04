@@ -79,3 +79,39 @@ class TestHtmlReporter:
         HtmlReporter().report(result, str(out))
         content = out.read_text(encoding="utf-8")
         assert "child-lib" in content
+
+    def test_report_contains_collapse_controls(self, tmp_path):
+        """HTML should contain Expand All and Collapse All buttons."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(), str(out))
+        content = out.read_text(encoding="utf-8")
+        assert "Expand All" in content
+        assert "Collapse All" in content
+
+    def test_report_deduped_vulnerability_count(self, tmp_path):
+        """Same dep appearing twice in tree should count its vulns only once."""
+        vuln = Vulnerability(cve_id="CVE-DUP", summary="Dup vuln", severity="HIGH")
+        dep_a = Dependency(group_id="org.example", artifact_id="lib", version="1.0", depth=1)
+        dep_a.vulnerabilities = [vuln]
+        dep_a_dup = Dependency(group_id="org.example", artifact_id="lib", version="1.0", depth=2)
+        dep_a_dup.vulnerabilities = [vuln]
+        root = Dependency(group_id="org.root", artifact_id="root", version="1.0")
+        root.transitive_dependencies = [dep_a, dep_a_dup]
+        result = ScanResult(source_file="pom.xml", dependencies=[root])
+        assert result.total_vulnerabilities == 1
+        assert len(result.vulnerable_dependencies) == 1
+
+    def test_report_vuln_list_section_present(self, tmp_path):
+        """HTML should contain a vuln-list-section element for the plain list view."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(with_vuln=True), str(out))
+        content = out.read_text(encoding="utf-8")
+        assert "vuln-list-section" in content
+
+    def test_report_vuln_list_section_contains_dep(self, tmp_path):
+        """The plain vuln list should include the vulnerable dependency link."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(with_vuln=True), str(out))
+        content = out.read_text(encoding="utf-8")
+        assert "CVE-TEST" in content
+        assert "vuln-deps" in content

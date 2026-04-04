@@ -82,3 +82,36 @@ class TestScanResult:
         dep = _make_dep("g", "a")
         result = ScanResult(source_file="pom.xml", dependencies=[dep])
         assert result.vulnerable_dependencies == []
+
+    def test_vulnerable_dependencies_deduped(self):
+        """Same dep (same coordinates) appearing twice in tree is counted once."""
+        vuln_dep_a = _make_dep("g", "a", "1.0")
+        vuln_dep_a.vulnerabilities = [_make_vuln("CVE-1")]
+        # Second node with identical coordinates (transitive of itself for test purposes)
+        vuln_dep_a_dup = _make_dep("g", "a", "1.0")
+        vuln_dep_a_dup.vulnerabilities = [_make_vuln("CVE-1")]
+        root = _make_dep("g", "root")
+        root.transitive_dependencies = [vuln_dep_a, vuln_dep_a_dup]
+        result = ScanResult(source_file="pom.xml", dependencies=[root])
+        assert len(result.vulnerable_dependencies) == 1
+
+    def test_total_vulnerabilities_deduped_same_dep(self):
+        """Same dep with a vulnerability appearing in tree twice counts vulns once."""
+        vuln_dep = _make_dep("g", "a", "1.0")
+        vuln_dep.vulnerabilities = [_make_vuln("CVE-1"), _make_vuln("CVE-2")]
+        vuln_dep_dup = _make_dep("g", "a", "1.0")
+        vuln_dep_dup.vulnerabilities = [_make_vuln("CVE-1"), _make_vuln("CVE-2")]
+        root = _make_dep("g", "root")
+        root.transitive_dependencies = [vuln_dep, vuln_dep_dup]
+        result = ScanResult(source_file="pom.xml", dependencies=[root])
+        # Should be 2 (from the single unique dep), not 4 (both duplicates)
+        assert result.total_vulnerabilities == 2
+
+    def test_vulnerable_dependencies_different_versions_both_counted(self):
+        """Same group+artifact at different versions are separate entries."""
+        dep_v1 = _make_dep("g", "a", "1.0")
+        dep_v1.vulnerabilities = [_make_vuln("CVE-1")]
+        dep_v2 = _make_dep("g", "a", "2.0")
+        dep_v2.vulnerabilities = [_make_vuln("CVE-2")]
+        result = ScanResult(source_file="pom.xml", dependencies=[dep_v1, dep_v2])
+        assert len(result.vulnerable_dependencies) == 2

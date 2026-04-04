@@ -7,10 +7,14 @@ Tests for the OsvScanner vulnerability scanner.
 :since: 1.0.0
 """
 
+import sqlite3
+
 import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
+from java_dependency_analyzer.cache.db import _initialise_schema
+from java_dependency_analyzer.cache.vulnerability_cache import VulnerabilityCache
 from java_dependency_analyzer.models.dependency import Dependency
 from java_dependency_analyzer.scanners.osv_scanner import OsvScanner
 
@@ -157,3 +161,78 @@ class TestOsvScanner:
             vulns = scanner.scan(_LOG4J)
 
         assert "osv.dev" in vulns[0].reference_url
+
+
+@pytest.fixture()
+def in_memory_cache():
+    """Yield a VulnerabilityCache backed by an in-memory SQLite database."""
+    conn = sqlite3.connect(":memory:")
+    _initialise_schema(conn)
+    cache = VulnerabilityCache(connection=conn)
+    yield cache
+    conn.close()
+
+
+class TestOsvScannerCache:
+    """Tests for OsvScanner cache behaviour."""
+
+    def test_cache_miss_calls_api(self, httpx_mock: HTTPXMock, in_memory_cache):
+        """On a cache miss the scanner should call the API."""
+        httpx_mock.add_response(url="https://api.osv.dev/v1/query", json=_OSV_RESPONSE)
+        with httpx.Client() as client:
+            scanner = OsvScanner(client=client, cache=in_memory_cache)
+            vulns = scanner.scan(_LOG4J)
+
+        assert len(vulns) == 1
+        assert vulns[0].source == "osv"
+
+    def test_cache_miss_stores_response(self, httpx_mock: HTTPXMock, in_memory_cache):
+        """After a cache miss the response should be persisted in the cache."""
+        httpx_mock.add_response(url="https://api.osv.dev/v1/query", json=_OSV_RESPONSE)
+        with httpx.Client() as client:
+            scanner = OsvScanner(client=client, cache=in_memory_cache)
+            scanner.scan(_LOG4J)
+
+        stored = in_memory_cache.get("osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        assert stored is not None
+
+    def test_cache_hit_returns_osv_cache_source(self, httpx_mock: HTTPXMock, in_memory_cache):
+        """On a cache hit the source field should be 'osv-cache'."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_RESPONSE,
+            is_reusable=True,
+            is_optional=True,
+        )
+        with httpx.Client() as client:
+            scanner = OsvScanner(client=client, cache=in_memory_cache)
+            # First call populates the cache
+            scanner.scan(_LOG4J)
+            # Second call should serve from cache
+            vulns = scanner.scan(_LOG4J)
+
+        assert len(vulns) == 1
+        assert vulns[0].source == "osv-cache"
+
+    def test_api_failure_does_not_cache(self, httpx_mock: HTTPXMock, in_memory_cache):
+        """A failed API call should not write anything to the cache."""
+        httpx_mock.add_response(url="https://api.osv.dev/v1/query", status_code=500)
+        with httpx.Client() as client:
+            scanner = OsvScanner(client=client, cache=in_memory_cache)
+            scanner.scan(_LOG4J)
+
+        stored = in_memory_cache.get("osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        assert stored is None
+
+    def test_no_cache_still_calls_api(self, httpx_mock: HTTPXMock):
+        """When cache=None the scanner calls the API directly every time."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_RESPONSE,
+            is_reusable=True,
+        )
+        with httpx.Client() as client:
+            scanner = OsvScanner(client=client, cache=None)
+            vulns = scanner.scan(_LOG4J)
+
+        assert vulns[0].source == "osv"
