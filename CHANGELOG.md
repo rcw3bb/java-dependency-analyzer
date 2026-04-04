@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1] - 2026-04-05
+
+### Added
+- Exposed `__version__` attribute in the main package, populated at runtime from installed package metadata via `importlib.metadata`.
+
+### Changed
+- Added `[tool.poetry]` section to `pyproject.toml` to declare the `java_dependency_analyzer` package and include `logging.ini` in the distribution.
+- Renamed `is_kotlin_dsl` parameter to `_is_kotlin_dsl` in `GradleParser._strip_comments` to resolve the unused-argument lint warning without a disable comment.
+- Applied Black code formatting across multiple modules (`cache`, `parsers`, `resolvers`, `scanners`) to comply with line-length rules.
+
 ## [1.0.0] - 2026-04-05
 
 ### Added

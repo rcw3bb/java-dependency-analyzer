@@ -1,6 +1,6 @@
 ## Purpose
 
-This repo is **Java Dependency Analyzer** (v1.0.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.2 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
+This repo is **Java Dependency Analyzer** (v1.0.1), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.2 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
 
 - Install deps: `poetry install`
 - Run tests + coverage: `poetry run pytest --cov=java_dependency_analyzer tests --cov-report html`
