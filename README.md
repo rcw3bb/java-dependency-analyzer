@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.0.1
+# Java Dependency Analyzer 1.0.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -167,6 +167,29 @@ Format and lint the source code (linter must score 10/10):
 poetry run black java_dependency_analyzer
 poetry run pylint java_dependency_analyzer
 ```
+
+## Publishing to PyPI
+
+### Prerequisites
+
+- A [PyPI](https://pypi.org/) account with an API token.
+
+### Configure the token
+
+```bash
+poetry config pypi-token.pypi <your-token>
+```
+
+### Build and publish
+
+```bash
+poetry publish --build
+```
+
+This builds the source distribution and wheel, then uploads them to PyPI in one step.
+
+> **Note:** PyPI releases are immutable. Once a version is published, it cannot be overwritten.  
+> To fix a mistake, yank the release via the PyPI web UI and publish a new version.
 
 ## [Changelog](CHANGELOG.md)
 
