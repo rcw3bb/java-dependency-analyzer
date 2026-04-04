@@ -24,6 +24,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - `tests/conftest.py` — global pytest fixtures; activates `httpx_mock` for every test to block all real HTTP calls
 - `tests/fixtures/` — sample fixture files for parsers and CLI tests
 - `pyproject.toml` — Poetry PEP 621 project config; use `poetry add` / `poetry add --dev`
+- `LICENSE` — MIT License
 - `logging.ini` — logging config (FileHandler + StreamHandler); log file: `java_dependency_analyzer.log`
 - `.pylintrc` — Pylint config based on rcw3bb's gist
 - `.gitignore` — excludes IDE files, `__pycache__`, `.env`, log files, `htmlcov/`; preserves `poetry.lock`
