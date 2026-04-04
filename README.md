@@ -96,6 +96,20 @@ Scan using a pre-resolved Maven dependency tree (skips transitive resolution):
 jda maven --dependencies maven.txt -f json -o reports/
 ```
 
+## Logging
+
+The tool writes logs to `java_dependency_analyzer.log` in the current working directory, in addition to printing them to the console (`stderr`).
+
+Logging requires a `logging.ini` file to be present in the working directory or any of its parent directories. The logger walks up the directory tree until it finds one.
+
+**When installed via pip**, no `logging.ini` is bundled. Without it the tool falls back to console-only logging (no log file is created). To enable file logging, copy `logging.ini` from the [repository](https://github.com/rcw3bb/java-dependency-analyzer/blob/master/logging.ini) to your working directory:
+
+```bash
+curl -O https://raw.githubusercontent.com/rcw3bb/java-dependency-analyzer/master/logging.ini
+```
+
+Then run `jda` from that same directory.
+
 ## Architecture
 
 ```mermaid
