@@ -7,10 +7,12 @@ Command-line interface entry point for the Java Dependency Analyzer.
 :since: 1.0.0
 """
 
+import sys
 from pathlib import Path
 
 import click
 
+from . import __version__
 from .cache.db import delete_database
 from .cache.vulnerability_cache import VulnerabilityCache
 from .models.dependency import Dependency
@@ -30,6 +32,9 @@ __author__ = "Ron Webb"
 __since__ = "1.0.0"
 
 _logger = setup_logger(__name__)
+
+EXIT_VULNERABILITIES_FOUND = 10
+"""Exit status returned when vulnerabilities are detected."""
 
 # ---------------------------------------------------------------------------
 # Shared CLI options applied to both subcommands
@@ -96,6 +101,7 @@ def _common_options(func):
 @click.group()
 def main() -> None:
     """Java Dependency Analyzer -- inspect Java dependency trees for known vulnerabilities."""
+    _logger.info("Java Dependency Analyzer v%s", __version__)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +168,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
                 click.echo(f"Loading dependency tree from {dependencies}...")
             parsed_deps = GradleDepTreeParser().parse(dependencies)
             source = file if file is not None else dependencies
-            _run_analysis(
+            found = _run_analysis(
                 parsed_deps,
                 source_file=source,
                 output_format=output_format,
@@ -175,7 +181,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
             if verbose:
                 click.echo(f"Parsing {Path(file).name}...")  # type: ignore[arg-type]
             parsed_deps = GradleParser().parse(file)  # type: ignore[arg-type]
-            _run_analysis(
+            found = _run_analysis(
                 parsed_deps,
                 source_file=file,  # type: ignore[arg-type]
                 output_format=output_format,
@@ -187,6 +193,9 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     finally:
         if cache is not None:
             cache.close()
+
+    if found:
+        sys.exit(EXIT_VULNERABILITIES_FOUND)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +260,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
                 click.echo(f"Loading dependency tree from {dependencies}...")
             parsed_deps = MavenDepTreeParser().parse(dependencies)
             source = file if file is not None else dependencies
-            _run_analysis(
+            found = _run_analysis(
                 parsed_deps,
                 source_file=source,
                 output_format=output_format,
@@ -264,7 +273,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
             if verbose:
                 click.echo(f"Parsing {Path(file).name}...")  # type: ignore[arg-type]
             parsed_deps = MavenParser().parse(file)  # type: ignore[arg-type]
-            _run_analysis(
+            found = _run_analysis(
                 parsed_deps,
                 source_file=file,  # type: ignore[arg-type]
                 output_format=output_format,
@@ -276,6 +285,9 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     finally:
         if cache is not None:
             cache.close()
+
+    if found:
+        sys.exit(EXIT_VULNERABILITIES_FOUND)
 
 
 # ---------------------------------------------------------------------------
@@ -308,10 +320,12 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     no_transitive: bool,
     verbose: bool,
     cache: VulnerabilityCache | None,
-) -> None:
+) -> bool:
     """
     Resolve transitive dependencies (unless skipped), scan for vulnerabilities,
     and write the requested reports.
+
+    Returns True when at least one vulnerability was detected, False otherwise.
 
     :author: Ron Webb
     :since: 1.0.0
@@ -344,6 +358,8 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
         f"{result.total_dependencies} dependencies, "
         f"{result.total_vulnerabilities} vulnerabilities found."
     )
+
+    return result.total_vulnerabilities > 0
 
 
 def _scan_all(

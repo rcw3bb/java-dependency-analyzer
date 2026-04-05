@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.0.1
+# Java Dependency Analyzer 1.1.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -54,6 +54,13 @@ Omit `FILE` when supplying `--dependencies`.
 | `--verbose` | `-v` | `false` | Print progress messages to the console. |
 | `--rebuild-cache` | | `false` | Delete the vulnerability cache before scanning. |
 | `--cache-ttl` | | `7` | Cache TTL in days. Set to `0` to disable caching. |
+
+### Exit Codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Scan completed successfully; no vulnerabilities found. |
+| `10` | Scan completed successfully; at least one vulnerability was detected. |
 
 ### Pre-resolved dependency trees (`--dependencies`)
 
