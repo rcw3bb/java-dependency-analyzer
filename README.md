@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.1.0
+# Java Dependency Analyzer 1.1.1
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -158,7 +158,7 @@ graph TD
 | `GradleDepTreeParser` | `parsers/gradle_dep_tree_parser.py` | Parses `gradle dependencies` text output into a full dependency tree. |
 | `TransitiveResolver` | `resolvers/transitive.py` | Fetches transitive dependencies by downloading POM files from Maven Central. |
 | `OsvScanner` | `scanners/osv_scanner.py` | Queries the [OSV.dev](https://osv.dev/) batch API for known CVEs. |
-| `GhsaScanner` | `scanners/ghsa_scanner.py` | Queries the [GitHub Advisory Database](https://github.com/advisories) REST API for security advisories. |
+| `GhsaScanner` | `scanners/ghsa_scanner.py` | Queries the [GitHub Advisory Database](https://github.com/advisories) REST API for security advisories; automatically falls back to OSV when rate-limited (HTTP 403/429). |
 | `VulnerabilityCache` | `cache/vulnerability_cache.py` | SQLite-backed cache for raw vulnerability API payloads with configurable TTL. |
 | `DatabaseManager` | `cache/db.py` | Manages SQLite connection lifecycle and schema initialisation. |
 | `JsonReporter` | `reporters/json_reporter.py` | Writes a `ScanResult` to a JSON file. |

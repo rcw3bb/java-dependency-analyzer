@@ -68,6 +68,18 @@ class GhsaScanner(VulnerabilityScanner):
 
         self._client = client or httpx.Client(timeout=30, headers=headers)
         self._cache = cache
+        self._rate_limited: bool = False
+
+    @property
+    def rate_limited(self) -> bool:
+        """
+        Return ``True`` once the GitHub Advisory API has responded with a
+        rate-limit error (HTTP 403 or 429) so callers can skip further requests.
+
+        :author: Ron Webb
+        :since: 1.1.1
+        """
+        return self._rate_limited
 
     def scan(self, dependency: Dependency) -> list[Vulnerability]:
         """
@@ -93,13 +105,20 @@ class GhsaScanner(VulnerabilityScanner):
             "affects": affects,
             "type": "reviewed",
         }
+        if self._rate_limited:
+            return []
+
         try:
             response = self._client.get(_GHSA_API_URL, params=params)
-            if response.status_code == 429:
+            if response.status_code in (429, 403) and (
+                response.status_code == 429 or "rate limit" in response.text.lower()
+            ):
                 _logger.warning(
-                    "GitHub Advisory API rate limit exceeded for %s",
-                    dependency.coordinates,
+                    "GitHub Advisory API rate limit exceeded (HTTP %s); "
+                    "disabling GHSA for this run",
+                    response.status_code,
                 )
+                self._rate_limited = True
                 return []
             response.raise_for_status()
             data = response.json()

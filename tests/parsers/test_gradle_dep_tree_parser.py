@@ -91,3 +91,51 @@ class TestGradleDepTreeParser:
         deps = parser.parse(str(_FIXTURES / "sample_gradle_deps.txt"))
         spring_core = next(d for d in deps if d.artifact_id == "spring-core")
         assert spring_core.version == "5.3.39"
+
+    def test_no_version_before_arrow(self, tmp_path):
+        """'group:artifact -> version' (no version before arrow) uses the resolved version."""
+        content = (
+            "runtimeClasspath\n"
+            "+--- org.apache.camel:camel-core -> 4.16.0\n"
+            "\\--- org.apache.camel:camel-main:4.16.0\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        camel_core = next(d for d in deps if d.artifact_id == "camel-core")
+        assert camel_core.version == "4.16.0"
+        assert camel_core.group_id == "org.apache.camel"
+
+    def test_repeated_entry_uses_resolved_version(self, tmp_path):
+        """A (*) repeated entry should use the resolved version from the first occurrence."""
+        content = (
+            "runtimeClasspath\n"
+            "+--- org.example:lib-a:1.0\n"
+            "|    \\--- org.example:lib-b:2.0 -> 1.5\n"
+            "\\--- org.example:lib-c:3.0\n"
+            "     \\--- org.example:lib-b:2.0 (*)\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(dep_file))
+
+        def _find(deps_list, artifact):
+            for d in deps_list:
+                if d.artifact_id == artifact:
+                    return d
+                found = _find(d.transitive_dependencies, artifact)
+                if found:
+                    return found
+            return None
+
+        lib_b_first = _find(deps, "lib-b")
+        assert lib_b_first is not None
+        assert lib_b_first.version == "1.5"
+
+        lib_c = next(d for d in deps if d.artifact_id == "lib-c")
+        lib_b_repeated = next(
+            d for d in lib_c.transitive_dependencies if d.artifact_id == "lib-b"
+        )
+        assert lib_b_repeated.version == "1.5"

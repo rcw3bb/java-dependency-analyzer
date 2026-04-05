@@ -381,7 +381,17 @@ def _scan_all(
     for dep in dependencies:
         if verbose:
             click.echo(f"  Scanning {dep.coordinates}...")
-        ghsa_vulns = ghsa.scan(dep)
+        if not ghsa.rate_limited:
+            ghsa_vulns = ghsa.scan(dep)
+            if ghsa.rate_limited:
+                click.echo(
+                    "  GHSA rate limit exceeded; "
+                    "falling back to OSV for remaining dependencies.",
+                    err=True,
+                )
+                ghsa_vulns = []
+        else:
+            ghsa_vulns = []
         dep.vulnerabilities = ghsa_vulns if ghsa_vulns else osv.scan(dep)
         _scan_all(dep.transitive_dependencies, osv, ghsa, verbose)
 

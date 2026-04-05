@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.1] - 2026-04-06
+
+### Fixed
+- `GradleDepTreeParser` now correctly handles Gradle coordinates in `group:artifact -> version` format (no inline version before the arrow).
+- `GradleDepTreeParser` caches resolved versions from `->` arrows so repeated `(*)` dependency entries consistently use the resolved version.
+
+### Changed
+- `GhsaScanner` now treats HTTP 403 (in addition to 429) as a rate-limit signal and sets a persistent `rate_limited` flag for the run.
+- CLI falls back to OSV for all remaining dependencies once the GHSA rate limit is hit, rather than silently skipping GHSA results.
+
 ## [1.1.0] - 2026-04-05
 
 ### Added
