@@ -24,8 +24,11 @@ _logger = setup_logger(__name__)
 _INDENT_UNIT = 5
 _CONNECTOR_RE = re.compile(r"^((?:[|\\+]\s{3,4}|\s{5})*)([+\\])--- (.+)$")
 
-# Matches a resolved version arrow, e.g. "1.0 -> 2.0" or "RELEASE -> 4.16.0"
+# Matches a resolved version arrow, e.g. "1.0 -> 2.0", "RELEASE -> 4.16.0", or "artifact -> 4.16.0"
 _VERSION_ARROW_RE = re.compile(r"\s*->\s*(\S+)$")
+
+# Gradle coordinates without an explicit version: group:artifact (version comes from arrow)
+_COORD_NO_VERSION_RE = re.compile(r"^([^:]+):([^:]+)$")
 
 # Suffix appended to repeated subtree roots by Gradle
 _REPEATED_SUFFIX = " (*)"
@@ -51,6 +54,26 @@ class GradleDepTreeParser(DepTreeParser):
     :author: Ron Webb
     :since: 1.0.0
     """
+
+    def __init__(self) -> None:
+        """
+        Initialise the parser with an empty version-resolution cache.
+
+        :author: Ron Webb
+        :since: 1.1.1
+        """
+        # Maps (group_id, artifact_id) -> resolved version from a -> arrow
+        self._resolutions: dict[tuple[str, str], str] = {}
+
+    def parse(self, file_path: str) -> list[Dependency]:
+        """
+        Reset the resolution cache and delegate to the base parser.
+
+        :author: Ron Webb
+        :since: 1.1.1
+        """
+        self._resolutions = {}
+        return super().parse(file_path)
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -93,7 +116,7 @@ class GradleDepTreeParser(DepTreeParser):
         :author: Ron Webb
         :since: 1.0.0
         """
-        # Resolve version arrows: "group:artifact:1.0 -> 2.0"
+        # Resolve version arrows: "group:artifact:1.0 -> 2.0" or "group:artifact -> 2.0"
         arrow_match = _VERSION_ARROW_RE.search(coord_str)
         if arrow_match:
             resolved_version = arrow_match.group(1)
@@ -102,17 +125,31 @@ class GradleDepTreeParser(DepTreeParser):
         else:
             resolved_version = None
 
-        coord_match = _COORD_RE.match(coord_str.strip())
-        if coord_match is None:
-            _logger.debug("Could not parse coordinate: %s", coord_str)
-            return None
-
-        group_id = coord_match.group(1).strip()
-        artifact_id = coord_match.group(2).strip()
-        version = resolved_version or coord_match.group(3).strip()
+        coord_str = coord_str.strip()
+        coord_match = _COORD_RE.match(coord_str)
+        if coord_match is not None:
+            group_id = coord_match.group(1).strip()
+            artifact_id = coord_match.group(2).strip()
+            version = resolved_version or coord_match.group(3).strip()
+        else:
+            # Handle "group:artifact -> version" (no version before the arrow)
+            no_ver_match = _COORD_NO_VERSION_RE.match(coord_str)
+            if no_ver_match and resolved_version:
+                group_id = no_ver_match.group(1).strip()
+                artifact_id = no_ver_match.group(2).strip()
+                version = resolved_version
+            else:
+                _logger.debug("Could not parse coordinate: %s", coord_str)
+                return None
 
         if not group_id or not artifact_id or not version:
             return None
+
+        # Store the resolved version the first time a -> arrow is seen for this artifact
+        if resolved_version:
+            self._resolutions[(group_id, artifact_id)] = resolved_version
+        # Apply any cached resolution so (*) repeated entries use the resolved version
+        version = self._resolutions.get((group_id, artifact_id), version)
 
         return Dependency(
             group_id=group_id,

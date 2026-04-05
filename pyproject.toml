@@ -1,6 +1,6 @@
 [project]
 name = "java-dependency-analyzer"
-version = "1.1.0"
+version = "1.1.1"
 description = "Java Dependency Analyzer is a tool that inspects dependencies."
 authors = [
     {name = "Ron Webb",email = "ron@ronella.xyz"}

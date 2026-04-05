@@ -38,7 +38,10 @@ _GHSA_RESPONSE = [
         "summary": "Remote code execution in Apache Log4j2",
         "html_url": "https://github.com/advisories/GHSA-jfh8-c2jp-hdp9",
         "severity": "critical",
-        "cvss": {"vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H", "score": 10.0},
+        "cvss": {
+            "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+            "score": 10.0,
+        },
         "cvss_severities": {
             "cvss_v3": {
                 "vector_string": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
@@ -48,7 +51,10 @@ _GHSA_RESPONSE = [
         },
         "vulnerabilities": [
             {
-                "package": {"ecosystem": "maven", "name": "org.apache.logging.log4j:log4j-core"},
+                "package": {
+                    "ecosystem": "maven",
+                    "name": "org.apache.logging.log4j:log4j-core",
+                },
                 "vulnerable_version_range": ">= 2.0-beta9, < 2.15.0",
                 "first_patched_version": "2.15.0",
             }
@@ -80,7 +86,9 @@ class TestGhsaScanner:
 
     def test_scan_returns_empty_when_no_advisories(self, httpx_mock: HTTPXMock):
         """scan() should return an empty list when GHSA finds no advisories."""
-        httpx_mock.add_response(url=_GHSA_URL_RE, json=_EMPTY_RESPONSE, is_reusable=True)
+        httpx_mock.add_response(
+            url=_GHSA_URL_RE, json=_EMPTY_RESPONSE, is_reusable=True
+        )
         with httpx.Client() as client:
             scanner = GhsaScanner(client=client)
             vulns = scanner.scan(_LOG4J)
@@ -274,10 +282,14 @@ class TestGhsaScannerCache:
             scanner = GhsaScanner(client=client, cache=in_memory_cache)
             scanner.scan(_LOG4J)
 
-        stored = in_memory_cache.get("ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        stored = in_memory_cache.get(
+            "ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version
+        )
         assert stored is not None
 
-    def test_cache_hit_returns_ghsa_cache_source(self, httpx_mock: HTTPXMock, in_memory_cache):
+    def test_cache_hit_returns_ghsa_cache_source(
+        self, httpx_mock: HTTPXMock, in_memory_cache
+    ):
         """On a cache hit the source field should be 'ghsa-cache'."""
         httpx_mock.add_response(
             url=_GHSA_URL_RE,
@@ -302,7 +314,9 @@ class TestGhsaScannerCache:
             scanner = GhsaScanner(client=client, cache=in_memory_cache)
             scanner.scan(_LOG4J)
 
-        stored = in_memory_cache.get("ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        stored = in_memory_cache.get(
+            "ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version
+        )
         assert stored is None
 
     def test_rate_limit_does_not_cache(self, httpx_mock: HTTPXMock, in_memory_cache):
@@ -312,7 +326,9 @@ class TestGhsaScannerCache:
             scanner = GhsaScanner(client=client, cache=in_memory_cache)
             scanner.scan(_LOG4J)
 
-        stored = in_memory_cache.get("ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        stored = in_memory_cache.get(
+            "ghsa", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version
+        )
         assert stored is None
 
     def test_no_cache_still_calls_api(self, httpx_mock: HTTPXMock):
@@ -327,3 +343,71 @@ class TestGhsaScannerCache:
             vulns = scanner.scan(_LOG4J)
 
         assert vulns[0].source == "ghsa"
+
+
+class TestGhsaScannerRateLimit:
+    """Tests for GhsaScanner rate-limit behaviour.
+
+    :author: Ron Webb
+    :since: 1.1.1
+    """
+
+    def test_rate_limited_false_initially(self):
+        """rate_limited should be False on a freshly created scanner."""
+        scanner = GhsaScanner()
+        assert scanner.rate_limited is False
+
+    def test_http_429_sets_rate_limited(self, httpx_mock: HTTPXMock):
+        """An HTTP 429 response should set rate_limited to True."""
+        httpx_mock.add_response(url=_GHSA_URL_RE, status_code=429, is_reusable=True)
+        with httpx.Client() as client:
+            scanner = GhsaScanner(client=client)
+            scanner.scan(_LOG4J)
+
+        assert scanner.rate_limited is True
+
+    def test_http_403_rate_limit_body_sets_rate_limited(self, httpx_mock: HTTPXMock):
+        """An HTTP 403 whose body contains 'rate limit' should set rate_limited to True."""
+        httpx_mock.add_response(
+            url=_GHSA_URL_RE,
+            status_code=403,
+            text="HTTP/1.1 403 rate limited exceeded",
+            is_reusable=True,
+        )
+        with httpx.Client() as client:
+            scanner = GhsaScanner(client=client)
+            scanner.scan(_LOG4J)
+
+        assert scanner.rate_limited is True
+
+    def test_http_403_non_rate_limit_body_does_not_set_rate_limited(
+        self, httpx_mock: HTTPXMock
+    ):
+        """An HTTP 403 whose body does NOT mention 'rate limit' should not set rate_limited."""
+        httpx_mock.add_response(
+            url=_GHSA_URL_RE,
+            status_code=403,
+            text="Forbidden",
+            is_reusable=True,
+        )
+        with httpx.Client() as client:
+            scanner = GhsaScanner(client=client)
+            scanner.scan(_LOG4J)
+
+        assert scanner.rate_limited is False
+
+    def test_rate_limited_skips_api_call(self, httpx_mock: HTTPXMock):
+        """When rate_limited is True, scan() should return [] without hitting the API."""
+        httpx_mock.add_response(url=_GHSA_URL_RE, status_code=429, is_reusable=True)
+        with httpx.Client() as client:
+            scanner = GhsaScanner(client=client)
+            scanner.scan(_LOG4J)  # first call triggers rate limit
+            # Second scan must not make another HTTP request; if it did,
+            # pytest-httpx would flag an unexpected request and the assertion below
+            # would still hold via the empty list.
+            second_dep = Dependency(
+                group_id="com.example", artifact_id="other", version="1.0.0"
+            )
+            vulns = scanner.scan(second_dep)
+
+        assert vulns == []
