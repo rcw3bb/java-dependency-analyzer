@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2026-04-05
+
+### Added
+- `LICENSE` file (MIT License) included in the repository and referenced in `pyproject.toml`.
+
+### Changed
+- CLI exits with status code `10` when at least one vulnerability is detected (exit code `0` means no vulnerabilities found).
+
 ## [1.0.1] - 2026-04-05
 
 ### Added

@@ -34,9 +34,7 @@ _GHSA_VULN = [
         "severity": "critical",
         "cvss": None,
         "cvss_severities": {"cvss_v3": None, "cvss_v4": None},
-        "vulnerabilities": [
-            {"vulnerable_version_range": ">= 2.0-beta9, < 2.15.0"}
-        ],
+        "vulnerabilities": [{"vulnerable_version_range": ">= 2.0-beta9, < 2.15.0"}],
     }
 ]
 
@@ -61,7 +59,10 @@ _OSV_VULN = {
                 }
             ],
             "references": [
-                {"type": "WEB", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"}
+                {
+                    "type": "WEB",
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+                }
             ],
         }
     ]
@@ -103,8 +104,10 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -120,8 +123,10 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "html",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "html",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -137,8 +142,10 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "all",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "all",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -155,8 +162,10 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
                 "--verbose",
             ],
@@ -173,8 +182,10 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -191,17 +202,22 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
                 "--rebuild-cache",
-                "--cache-ttl", "0",
+                "--cache-ttl",
+                "0",
             ],
         )
         assert result.exit_code == 0, result.output
         assert not db_path.exists()
 
-    def test_rebuild_cache_verbose_prints_message(self, httpx_mock: HTTPXMock, tmp_path):
+    def test_rebuild_cache_verbose_prints_message(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
         """--rebuild-cache with --verbose should print confirmation."""
         self._mock_all_http(httpx_mock)
         runner = CliRunner()
@@ -210,11 +226,14 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
                 "--rebuild-cache",
-                "--cache-ttl", "0",
+                "--cache-ttl",
+                "0",
                 "--verbose",
             ],
         )
@@ -231,15 +250,20 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
-                "--cache-ttl", "0",
+                "--cache-ttl",
+                "0",
             ],
         )
         assert not db_path.exists()
 
-    def test_osv_not_called_when_ghsa_finds_results(self, httpx_mock: HTTPXMock, tmp_path):
+    def test_osv_not_called_when_ghsa_finds_results(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
         """OSV should not be queried when GHSA finds vulnerabilities."""
         httpx_mock.add_response(
             url=re.compile(r"https://api\.github\.com/advisories"),
@@ -252,15 +276,20 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
-                "--cache-ttl", "0",
+                "--cache-ttl",
+                "0",
             ],
         )
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 10, result.output
 
-    def test_osv_used_as_fallback_when_ghsa_empty(self, httpx_mock: HTTPXMock, tmp_path):
+    def test_osv_used_as_fallback_when_ghsa_empty(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
         """OSV should be queried when GHSA returns an empty list."""
         httpx_mock.add_response(
             url=re.compile(r"https://api\.github\.com/advisories"),
@@ -278,13 +307,16 @@ class TestMavenSubcommand:
             [
                 "maven",
                 str(_FIXTURES / "sample_pom.xml"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
-                "--cache-ttl", "0",
+                "--cache-ttl",
+                "0",
             ],
         )
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 10, result.output
         assert "vulnerabilities found" in result.output
 
     def test_wrong_file_type_exits_with_usage_error(self, tmp_path):
@@ -310,10 +342,14 @@ class TestMavenSubcommand:
                 main,
                 [
                     "maven",
-                    "--dependencies", str(_FIXTURES / "sample_maven_deps.txt"),
-                    "--output-format", "json",
-                    "--output-dir", str(tmp_path),
-                    "--cache-ttl", "0",
+                    "--dependencies",
+                    str(_FIXTURES / "sample_maven_deps.txt"),
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--cache-ttl",
+                    "0",
                 ],
             )
         assert result.exit_code == 0, result.output
@@ -356,8 +392,10 @@ class TestGradleSubcommand:
             [
                 "gradle",
                 str(_FIXTURES / "sample_build.gradle"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -372,8 +410,10 @@ class TestGradleSubcommand:
             [
                 "gradle",
                 str(_FIXTURES / "sample_build.gradle.kts"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
@@ -402,10 +442,14 @@ class TestGradleSubcommand:
                 main,
                 [
                     "gradle",
-                    "--dependencies", str(_FIXTURES / "sample_gradle_deps.txt"),
-                    "--output-format", "json",
-                    "--output-dir", str(tmp_path),
-                    "--cache-ttl", "0",
+                    "--dependencies",
+                    str(_FIXTURES / "sample_gradle_deps.txt"),
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(tmp_path),
+                    "--cache-ttl",
+                    "0",
                 ],
             )
         assert result.exit_code == 0, result.output
@@ -421,9 +465,37 @@ class TestGradleSubcommand:
             [
                 "gradle",
                 str(_FIXTURES / "sample_build.gradle"),
-                "--output-format", "json",
-                "--output-dir", str(tmp_path),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
                 "--no-transitive",
             ],
         )
         assert "Scan complete" in result.output
+
+    def test_exit_code_10_when_vulnerabilities_found(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
+        """gradle subcommand should exit with code 10 when vulnerabilities are detected."""
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_VULN,
+            is_reusable=True,
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--no-transitive",
+                "--cache-ttl",
+                "0",
+            ],
+        )
+        assert result.exit_code == 10, result.output
