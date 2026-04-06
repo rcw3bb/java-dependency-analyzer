@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.1.1
+# Java Dependency Analyzer 1.2.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -101,6 +101,22 @@ Scan using a pre-resolved Maven dependency tree (skips transitive resolution):
 
 ```bash
 jda maven --dependencies maven.txt -f json -o reports/
+```
+
+## Configuration
+
+| Environment Variable | Required | Description |
+|---|---|---|
+| `GITHUB_TOKEN` | No | A [GitHub personal access token](https://github.com/settings/tokens). When set, the `GhsaScanner` uses it to authenticate requests to the GitHub Advisory Database REST API, which significantly increases the rate limit (from ~60 unauthenticated requests/hour to 5 000 authenticated requests/hour). Without it, scans with many dependencies may trigger HTTP 403/429 responses and fall back to the OSV.dev API. |
+
+Set it in your shell or in a `.env` file in the working directory before running `jda`:
+
+```bash
+# shell
+export GITHUB_TOKEN=ghp_yourTokenHere
+
+# or in .env
+GITHUB_TOKEN=ghp_yourTokenHere
 ```
 
 ## Logging
