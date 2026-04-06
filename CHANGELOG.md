@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.0] - 2026-04-07
+
+### Added
+- "Configuration" section in README documenting the `GITHUB_TOKEN` environment variable and its effect on GHSA rate limits.
+
+### Changed
+- HTML report "Has Vulnerabilities" view now renders a dedicated flat table with the full ancestor dependency chain and collapsible per-vulnerability details, replacing the previous in-place tree filtering.
+- Row number column (`#`) added to the vulnerability list table in the HTML report.
+- HTML report footer updated to reflect the current version.
+- AGENTS.md version-sync rule updated to include the HTML report footer as a required version location.
+
 ## [1.1.1] - 2026-04-06
 
 ### Fixed

@@ -1,6 +1,6 @@
 ## Purpose
 
-This repo is **Java Dependency Analyzer** (v1.1.1), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.2 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
+This repo is **Java Dependency Analyzer** (v1.2.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.2 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
 
 - Install deps: `poetry install`
 - Run tests + coverage: `poetry run pytest --cov=java_dependency_analyzer tests --cov-report html`
@@ -50,7 +50,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - For environment variables, use `python-dotenv`; never hardcode secrets
 - Never modify `.pylintrc` without approval; linter score must remain 10/10
 - When creating or discovering new files, update the Tree section above
-- On every version bump: the version in `pyproject.toml`, the title of `README.md`, the first entry in `CHANGELOG.md`, and the version in the Purpose section of `AGENTS.md` must all match
+- On every version bump: the version in `pyproject.toml`, the title of `README.md`, the first entry in `CHANGELOG.md`, the version in the Purpose section of `AGENTS.md`, and the footer version in `java_dependency_analyzer/reporters/templates/report.html` must all match
 
 ## Note-taking
 
