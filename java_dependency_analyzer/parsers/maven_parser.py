@@ -45,7 +45,9 @@ class MavenParser(DependencyParser):
             resolve_entities=False, no_network=True
         )
         try:
-            tree = etree.parse(file_path, parser)  # pylint: disable=c-extension-no-member
+            tree = etree.parse(
+                file_path, parser
+            )  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.error("Failed to parse POM XML: %s", exc)
             return []

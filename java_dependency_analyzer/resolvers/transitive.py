@@ -175,7 +175,9 @@ class TransitiveResolver:
             parser = etree.XMLParser(  # pylint: disable=c-extension-no-member
                 resolve_entities=False, no_network=True
             )
-            root = etree.fromstring(pom_content, parser)  # pylint: disable=c-extension-no-member
+            root = etree.fromstring(
+                pom_content, parser
+            )  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.warning("Could not parse POM for %s: %s", parent.coordinates, exc)
             return []
