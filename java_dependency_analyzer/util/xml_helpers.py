@@ -4,7 +4,7 @@ xml_helpers module.
 Shared utilities for working with Maven POM XML documents.
 
 :author: Ron Webb
-:since: 1.2.0
+:since: 1.2.1
 """
 
 from lxml import etree  # pylint: disable=c-extension-no-member
@@ -22,10 +22,10 @@ def detect_pom_namespace(
     """
     Return the namespace map when the POM root element uses the standard Maven namespace.
 
-    Returns ``{"m": POM_NS}`` when the root tag is namespace-qualified,
-    or an empty dict for namespace-free POMs.
+    Returns ``{"m": POM_NS}`` when the root tag uses the standard Maven namespace,
+    or an empty dict for namespace-free or non-Maven XML documents.
 
     :author: Ron Webb
     :since: 1.2.1
     """
-    return {"m": POM_NS} if root.tag.startswith("{") else {}
+    return {"m": POM_NS} if root.tag.startswith(f"{{{POM_NS}}}") else {}

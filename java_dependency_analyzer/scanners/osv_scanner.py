@@ -97,7 +97,7 @@ class OsvScanner(VulnerabilityScanner):
         self._put_cached("osv", dependency, json.dumps(data))
         return self._parse_response(data)
 
-    def _parse_response(self, data: dict) -> list[Vulnerability]:
+    def _parse_response(self, data: dict | list) -> list[Vulnerability]:
         """
         Parse the OSV API response JSON into Vulnerability objects.
 
@@ -105,7 +105,8 @@ class OsvScanner(VulnerabilityScanner):
         :since: 1.0.0
         """
         vulns: list[Vulnerability] = []
-        for vuln in data.get("vulns", []):
+        vuln_data = data if isinstance(data, dict) else {}
+        for vuln in vuln_data.get("vulns", []):
             vuln_obj = self._parse_vuln(vuln)
             if vuln_obj is not None:
                 vulns.append(vuln_obj)

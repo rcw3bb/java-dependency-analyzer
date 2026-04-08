@@ -140,7 +140,7 @@ class GhsaScanner(VulnerabilityScanner):
         self._put_cached("ghsa", dependency, json.dumps(data))
         return self._parse_response(data)
 
-    def _parse_response(self, data: list) -> list[Vulnerability]:
+    def _parse_response(self, data: dict | list) -> list[Vulnerability]:
         """
         Parse the GitHub Advisory API response (a JSON array) into Vulnerability objects.
 
@@ -148,7 +148,7 @@ class GhsaScanner(VulnerabilityScanner):
         :since: 1.0.0
         """
         vulns: list[Vulnerability] = []
-        for advisory in data:
+        for advisory in (data if isinstance(data, list) else []):
             vuln_obj = self._parse_advisory(advisory)
             if vuln_obj is not None:
                 vulns.append(vuln_obj)
