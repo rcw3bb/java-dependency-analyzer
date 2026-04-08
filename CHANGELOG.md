@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2 - 2026-04-09
+
+### Added
+- README installation section now lists PyPI (`pip install java-dependency-analyzer`) as the recommended installation method alongside the existing from-source instructions.
+
+### Fixed
+- `DepTreeParser` now detects encoding from BOM, enabling transparent handling of PowerShell-generated UTF-16 LE/BE and UTF-8-BOM dependency tree files alongside plain UTF-8 files.
+- HTML report "Has Vulnerabilities" section is now correctly hidden when the user resets the view back to the dependency tree.
+
 ## 1.2.1 - 2026-04-08
 
 ### Added
