@@ -131,7 +131,15 @@ class DepTreeParser(DependencyParser):
         """
         _logger.info("Parsing dependency tree from '%s'", file_path)
         try:
-            content = Path(file_path).read_text(encoding="utf-8")
+            raw = Path(file_path).read_bytes()
+            # Detect encoding from BOM so PowerShell-generated UTF-16 files are
+            # handled transparently alongside plain UTF-8 files.
+            if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+                content = raw.decode("utf-16")
+            elif raw.startswith(b"\xef\xbb\xbf"):
+                content = raw.decode("utf-8-sig")
+            else:
+                content = raw.decode("utf-8")
         except OSError as exc:
             _logger.error("Failed to read file: %s", exc)
             return []

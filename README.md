@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.2.1
+# Java Dependency Analyzer 1.2.2
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -9,7 +9,17 @@
 
 ## Installation
 
-Clone the repository and install all dependencies:
+### Via pip (recommended)
+
+Install directly from [PyPI](https://pypi.org/project/java-dependency-analyzer/):
+
+```bash
+pip install java-dependency-analyzer
+```
+
+### From source
+
+Clone the repository and install all dependencies using Poetry:
 
 ```bash
 git clone <repository-url>
