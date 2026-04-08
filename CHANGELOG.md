@@ -11,12 +11,16 @@
 - `MavenParser` and `TransitiveResolver` now use the shared `POM_NS` constant and `detect_pom_namespace()` from `util.xml_helpers`.
 - `VulnerabilityScanner._parse_response()` parameter typed as `dict | list` instead of untyped.
 - `OsvScanner` removes unused `_OSV_BATCH_URL` constant.
+- XML parsing calls in `MavenParser` and `TransitiveResolver` reformatted for improved readability.
 
 ### Fixed
 - `MavenParser` and `TransitiveResolver` POM XML parsing now uses a hardened `XMLParser` (`resolve_entities=False, no_network=True`) to prevent XXE injection.
 - CLI `gradle` and `maven` subcommands now call `Path.resolve()` on input file paths for consistent absolute-path handling.
 - `get_connection()` in `cache/db.py` now raises a descriptive `RuntimeError` on cache-directory creation or SQLite connection failures instead of propagating raw OS/SQLite errors.
 - `setup_logger()` now falls back to `basicConfig` when loading `logging.ini` raises an exception, preventing silent failures.
+- `GhsaScanner._parse_response()` now guards against non-list responses by iterating only when data is a list.
+- `OsvScanner._parse_response()` now guards against non-dict responses by accessing `vulns` only when data is a dict.
+- `detect_pom_namespace()` now matches the exact Maven namespace prefix instead of any brace-enclosed namespace, preventing false matches on non-Maven XML.
 
 ## 1.2.0 - 2026-04-07
 
