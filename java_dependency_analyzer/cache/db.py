@@ -64,11 +64,19 @@ def get_connection() -> sqlite3.Connection:
     :since: 1.0.0
     """
     db_path = get_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _logger.error("Failed to create cache directory at %s: %s", db_path.parent, exc)
+        raise RuntimeError(f"Cannot create cache directory: {exc}") from exc
     _logger.debug("Opening cache database at %s", db_path)
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    _initialise_schema(conn)
-    return conn
+    try:
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        _initialise_schema(conn)
+        return conn
+    except sqlite3.Error as exc:
+        _logger.error("Failed to connect to cache database at %s: %s", db_path, exc)
+        raise RuntimeError(f"Cannot open cache database: {exc}") from exc
 
 
 def _initialise_schema(conn: sqlite3.Connection) -> None:

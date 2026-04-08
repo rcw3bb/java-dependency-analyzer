@@ -80,7 +80,11 @@ class TestTransitiveResolver:
             url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
-        dep = Dependency(group_id="org.apache.logging.log4j", artifact_id="log4j-core", version="2.14.1")
+        dep = Dependency(
+            group_id="org.apache.logging.log4j",
+            artifact_id="log4j-core",
+            version="2.14.1",
+        )
         with httpx.Client() as client:
             resolver = TransitiveResolver(client=client)
             resolver.resolve(dep)
@@ -213,7 +217,9 @@ class TestTransitiveResolver:
             url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
-        dep = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0", depth=0)
+        dep = Dependency(
+            group_id="com.example", artifact_id="parent", version="1.0.0", depth=0
+        )
         with httpx.Client() as client:
             resolver = TransitiveResolver(client=client)
             resolver.resolve(dep)

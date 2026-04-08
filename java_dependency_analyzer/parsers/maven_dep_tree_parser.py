@@ -23,7 +23,8 @@ _logger = setup_logger(__name__)
 _INFO_PREFIX = "[INFO] "
 _INFO_PREFIX_LEN = len(_INFO_PREFIX)
 
-# Each level of indentation is 3 characters wide ("|  " or "   ")
+# Each level of indentation is 3 characters wide ("|  " or "   ").
+# _INDENT_UNIT and the literal \s{2} / \s{3} inside _CONNECTOR_RE must stay in sync.
 _INDENT_UNIT = 3
 
 # Matches the tree connector at the start of a dependency after stripping [INFO]

@@ -8,8 +8,10 @@ Queries the OSV.dev API to get vulnerability information for Maven packages.
 """
 
 import json
+import os
 
 import httpx
+from dotenv import load_dotenv
 
 from ..cache.vulnerability_cache import VulnerabilityCache
 from ..models.dependency import Dependency, Vulnerability
@@ -19,11 +21,12 @@ from .base import VulnerabilityScanner
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
 
+load_dotenv()
+
 _logger = setup_logger(__name__)
 
-_OSV_QUERY_URL = "https://api.osv.dev/v1/query"
-_OSV_BATCH_URL = "https://api.osv.dev/v1/querybatch"
-_OSV_VULN_URL = "https://osv.dev/vulnerability/"
+_OSV_QUERY_URL = os.getenv("OSV_QUERY_URL", "https://api.osv.dev/v1/query")
+_OSV_VULN_URL = os.getenv("OSV_VULN_URL", "https://osv.dev/vulnerability/")
 
 
 class OsvScanner(VulnerabilityScanner):
@@ -74,8 +77,21 @@ class OsvScanner(VulnerabilityScanner):
             response = self._client.post(_OSV_QUERY_URL, json=payload)
             response.raise_for_status()
             data = response.json()
-        except httpx.HTTPError as exc:
-            _logger.warning("OSV query failed for %s: %s", dependency.coordinates, exc)
+        except httpx.TimeoutException as exc:
+            _logger.warning("OSV query timeout for %s: %s", dependency.coordinates, exc)
+            return []
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                _logger.debug("No OSV entry for %s", dependency.coordinates)
+            else:
+                _logger.warning(
+                    "OSV HTTP error for %s: %s", dependency.coordinates, exc
+                )
+            return []
+        except httpx.RequestError as exc:
+            _logger.warning(
+                "OSV request failed for %s: %s", dependency.coordinates, exc
+            )
             return []
 
         self._put_cached("osv", dependency, json.dumps(data))

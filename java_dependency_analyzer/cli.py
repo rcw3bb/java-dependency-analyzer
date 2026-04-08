@@ -153,7 +153,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         raise click.UsageError("Provide FILE or --dependencies (or both).")
 
     if file is not None:
-        file_path = Path(file)
+        file_path = Path(file).resolve()
         name = file_path.name
         if not (name.endswith("build.gradle.kts") or name.endswith("build.gradle")):
             raise click.UsageError(
@@ -246,7 +246,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         raise click.UsageError("Provide FILE or --dependencies (or both).")
 
     if file is not None:
-        file_path = Path(file)
+        file_path = Path(file).resolve()
         if not file_path.name.endswith("pom.xml"):
             raise click.UsageError(
                 f"Unsupported file: {file_path.name}. Expected pom.xml."

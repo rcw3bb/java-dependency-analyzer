@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.2.0
+# Java Dependency Analyzer 1.2.1
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -49,7 +49,7 @@ Omit `FILE` when supplying `--dependencies`.
 |---|---|---|---|
 | `--dependencies` | `-d` | | Path to a pre-resolved dependency tree text file (see below). When supplied, parsing and transitive resolution are skipped. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
-| `--output-dir` | `-o` | `.` | Directory to write the report file(s) into. |
+| `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
 | `--no-transitive` | | `false` | Skip transitive dependency resolution; analyse direct dependencies only. |
 | `--verbose` | `-v` | `false` | Print progress messages to the console. |
 | `--rebuild-cache` | | `false` | Delete the vulnerability cache before scanning. |
@@ -105,9 +105,13 @@ jda maven --dependencies maven.txt -f json -o reports/
 
 ## Configuration
 
-| Environment Variable | Required | Description |
-|---|---|---|
-| `GITHUB_TOKEN` | No | A [GitHub personal access token](https://github.com/settings/tokens). When set, the `GhsaScanner` uses it to authenticate requests to the GitHub Advisory Database REST API, which significantly increases the rate limit (from ~60 unauthenticated requests/hour to 5 000 authenticated requests/hour). Without it, scans with many dependencies may trigger HTTP 403/429 responses and fall back to the OSV.dev API. |
+| Environment Variable | Required | Default | Description |
+|---|---|---|---|
+| `GITHUB_TOKEN` | No | _(none)_ | A [GitHub personal access token](https://github.com/settings/tokens). When set, the `GhsaScanner` uses it to authenticate requests to the GitHub Advisory Database REST API, which significantly increases the rate limit (from ~60 unauthenticated requests/hour to 5 000 authenticated requests/hour). Without it, scans with many dependencies may trigger HTTP 403/429 responses and fall back to the OSV.dev API. |
+| `GHSA_API_URL` | No | `https://api.github.com/advisories` | Override the GitHub Advisory Database REST API endpoint used by `GhsaScanner`. Useful for proxies or air-gapped mirrors. |
+| `OSV_QUERY_URL` | No | `https://api.osv.dev/v1/query` | Override the OSV.dev single-query endpoint used by `OsvScanner`. |
+| `OSV_VULN_URL` | No | `https://osv.dev/vulnerability/` | Override the OSV.dev vulnerability detail base URL embedded in reports. |
+| `MAVEN_CENTRAL_URL` | No | `https://repo1.maven.org/maven2` | Override the Maven Central repository URL used by `TransitiveResolver` to fetch POM files. |
 
 Set it in your shell or in a `.env` file in the working directory before running `jda`:
 
@@ -177,6 +181,7 @@ graph TD
 | `GhsaScanner` | `scanners/ghsa_scanner.py` | Queries the [GitHub Advisory Database](https://github.com/advisories) REST API for security advisories; automatically falls back to OSV when rate-limited (HTTP 403/429). |
 | `VulnerabilityCache` | `cache/vulnerability_cache.py` | SQLite-backed cache for raw vulnerability API payloads with configurable TTL. |
 | `DatabaseManager` | `cache/db.py` | Manages SQLite connection lifecycle and schema initialisation. |
+| `xml_helpers` | `util/xml_helpers.py` | Shared POM XML utilities: `POM_NS` constant and `detect_pom_namespace()` for handling namespace-qualified and namespace-free POM documents. |
 | `JsonReporter` | `reporters/json_reporter.py` | Writes a `ScanResult` to a JSON file. |
 | `HtmlReporter` | `reporters/html_reporter.py` | Renders a `ScanResult` to a styled HTML report via a Jinja2 template. |
 

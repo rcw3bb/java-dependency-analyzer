@@ -20,7 +20,8 @@ __since__ = "1.0.0"
 _logger = setup_logger(__name__)
 
 # Matches the tree connector characters at the start of a dependency line.
-# Each level of indentation is exactly 5 characters wide ("     " or "|    ").
+# Each indentation level is exactly 5 characters wide ("     " or "|    ").
+# _INDENT_UNIT and the literal \s{5} / \s{3,4} inside _CONNECTOR_RE must stay in sync.
 _INDENT_UNIT = 5
 _CONNECTOR_RE = re.compile(r"^((?:[|\\+]\s{3,4}|\s{5})*)([+\\])--- (.+)$")
 

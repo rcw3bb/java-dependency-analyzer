@@ -26,7 +26,7 @@ load_dotenv()
 
 _logger = setup_logger(__name__)
 
-_GHSA_API_URL = "https://api.github.com/advisories"
+_GHSA_API_URL = os.getenv("GHSA_API_URL", "https://api.github.com/advisories")
 _ACCEPT_HEADER = "application/vnd.github+json"
 _API_VERSION_HEADER = "2022-11-28"
 
@@ -81,7 +81,9 @@ class GhsaScanner(VulnerabilityScanner):
         """
         return self._rate_limited
 
-    def scan(self, dependency: Dependency) -> list[Vulnerability]:
+    def scan(  # pylint: disable=too-many-return-statements
+        self, dependency: Dependency
+    ) -> list[Vulnerability]:
         """
         Query the GitHub Advisory Database for advisories affecting this dependency.
 
@@ -110,20 +112,29 @@ class GhsaScanner(VulnerabilityScanner):
 
         try:
             response = self._client.get(_GHSA_API_URL, params=params)
-            if response.status_code in (429, 403) and (
-                response.status_code == 429 or "rate limit" in response.text.lower()
-            ):
-                _logger.warning(
-                    "GitHub Advisory API rate limit exceeded (HTTP %s); "
-                    "disabling GHSA for this run",
-                    response.status_code,
-                )
-                self._rate_limited = True
-                return []
+            if response.status_code in (429, 403):
+                if response.status_code == 429 or "rate limit" in response.text.lower():
+                    _logger.warning(
+                        "GitHub Advisory API rate limit exceeded (HTTP %s); "
+                        "disabling GHSA for this run",
+                        response.status_code,
+                    )
+                    self._rate_limited = True
+                    return []
             response.raise_for_status()
             data = response.json()
-        except httpx.HTTPError as exc:
-            _logger.warning("GHSA query failed for %s: %s", dependency.coordinates, exc)
+        except httpx.TimeoutException as exc:
+            _logger.warning(
+                "GHSA query timeout for %s: %s", dependency.coordinates, exc
+            )
+            return []
+        except httpx.HTTPStatusError as exc:
+            _logger.warning("GHSA HTTP error for %s: %s", dependency.coordinates, exc)
+            return []
+        except httpx.RequestError as exc:
+            _logger.warning(
+                "GHSA request failed for %s: %s", dependency.coordinates, exc
+            )
             return []
 
         self._put_cached("ghsa", dependency, json.dumps(data))
