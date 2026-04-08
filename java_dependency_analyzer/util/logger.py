@@ -41,7 +41,15 @@ def setup_logger(name: str) -> logging.Logger:
     search_dir = os.getcwd()
     config_path = find_logging_ini(search_dir)
     if config_path is not None and os.path.exists(config_path):
-        logging.config.fileConfig(config_path, disable_existing_loggers=False)
+        try:
+            logging.config.fileConfig(config_path, disable_existing_loggers=False)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logging.basicConfig(level=logging.INFO)
+            logging.warning(
+                "Failed to load logging config from %s: %s. Using basic configuration.",
+                config_path,
+                exc,
+            )
     else:
         logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(name)

@@ -7,21 +7,29 @@ Resolves transitive dependencies by fetching POMs from Maven Central.
 :since: 1.0.0
 """
 
+import os
 import re
+from collections.abc import Callable
 
 import httpx
-from lxml import etree
+from dotenv import load_dotenv
+from lxml import etree  # pylint: disable=c-extension-no-member
 
 from ..models.dependency import Dependency
 from ..parsers.base import RUNTIME_SCOPES
 from ..util.logger import setup_logger
+from ..util.xml_helpers import POM_NS
 
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
 
+load_dotenv()
+
 _logger = setup_logger(__name__)
 
-_MAVEN_CENTRAL = "https://repo1.maven.org/maven2"
+_MAVEN_CENTRAL = os.getenv("MAVEN_CENTRAL_URL", "https://repo1.maven.org/maven2")
+# Maximum depth for transitive dependency resolution.
+# Prevents infinite recursion and excessive network requests.
 _MAX_DEPTH = 5
 
 # Scopes that do NOT propagate transitively to the consumer
@@ -163,14 +171,18 @@ class TransitiveResolver:
         :since: 1.0.0
         """
         try:
+            # Use a secure parser with external entity processing disabled to prevent XXE
+            parser = etree.XMLParser(  # pylint: disable=c-extension-no-member
+                resolve_entities=False, no_network=True
+            )
             root = etree.fromstring(
-                pom_content
-            )  # nosec B320  # pylint: disable=c-extension-no-member
+                pom_content, parser
+            )  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.warning("Could not parse POM for %s: %s", parent.coordinates, exc)
             return []
 
-        ns_map = {"m": "http://maven.apache.org/POM/4.0.0"}
+        ns_map = {"m": POM_NS}
         ns_prefix = "m:" if root.tag.startswith("{") else ""
 
         def find(node: etree._Element, tag: str) -> etree._Element | None:
@@ -235,7 +247,7 @@ class TransitiveResolver:
         self,
         dep_el: etree._Element,
         properties: dict[str, str],
-        text_fn,  # callable is fine; typing via Callable is imported from collections.abc
+        text_fn: Callable[[etree._Element, str], str],
     ) -> Dependency | None:
         """
         Parse a single dependency XML element into a Dependency, or return None to skip it.

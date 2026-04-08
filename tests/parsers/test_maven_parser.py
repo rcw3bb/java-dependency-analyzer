@@ -91,7 +91,7 @@ class TestMavenParser:
         pom = tmp_path / "pom.xml"
         pom.write_text(
             '<?xml version="1.0"?><project><groupId>g</groupId>'
-            '<artifactId>a</artifactId><version>1.0</version></project>',
+            "<artifactId>a</artifactId><version>1.0</version></project>",
             encoding="utf-8",
         )
         deps = self.parser.parse(str(pom))

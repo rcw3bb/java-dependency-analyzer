@@ -8,19 +8,17 @@ Parses Maven pom.xml files to extract runtime dependencies.
 """
 
 import re
-from lxml import etree
+from lxml import etree  # pylint: disable=c-extension-no-member
 
 from ..models.dependency import Dependency
 from ..util.logger import setup_logger
+from ..util.xml_helpers import POM_NS, detect_pom_namespace
 from .base import DependencyParser, RUNTIME_SCOPES
 
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
 
 _logger = setup_logger(__name__)
-
-# POM XML namespace
-_POM_NS = "http://maven.apache.org/POM/4.0.0"
 
 
 class MavenParser(DependencyParser):
@@ -42,10 +40,14 @@ class MavenParser(DependencyParser):
         :since: 1.0.0
         """
         _logger.info("Parsing Maven POM: %s", file_path)
+        # Use a secure parser with external entity processing disabled to prevent XXE
+        parser = etree.XMLParser(  # pylint: disable=c-extension-no-member
+            resolve_entities=False, no_network=True
+        )
         try:
             tree = etree.parse(
-                file_path
-            )  # nosec B320  # pylint: disable=c-extension-no-member
+                file_path, parser
+            )  # pylint: disable=c-extension-no-member
         except etree.XMLSyntaxError as exc:  # pylint: disable=c-extension-no-member
             _logger.error("Failed to parse POM XML: %s", exc)
             return []
@@ -62,9 +64,7 @@ class MavenParser(DependencyParser):
         :author: Ron Webb
         :since: 1.0.0
         """
-        if root.tag.startswith("{"):
-            return {"m": _POM_NS}
-        return {}
+        return detect_pom_namespace(root)
 
     def _tag(self, name: str, namespace: dict[str, str]) -> str:
         """
@@ -74,7 +74,7 @@ class MavenParser(DependencyParser):
         :since: 1.0.0
         """
         if namespace:
-            return f"{{{_POM_NS}}}{name}"
+            return f"{{{POM_NS}}}{name}"
         return name
 
     def _extract_properties(

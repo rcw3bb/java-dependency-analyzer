@@ -43,12 +43,12 @@ class VulnerabilityScanner(ABC):
         """
 
     @abstractmethod
-    def _parse_response(self, data) -> list[Vulnerability]:
+    def _parse_response(self, data: dict | list) -> list[Vulnerability]:
         """
         Parse the raw API response payload into Vulnerability objects.
 
         Concrete scanners receive either a ``dict`` (OSV) or a ``list`` (GHSA),
-        so the parameter is intentionally untyped here.
+        so the parameter accepts either type.
 
         :author: Ron Webb
         :since: 1.0.0
