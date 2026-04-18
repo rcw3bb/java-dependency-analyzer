@@ -1,6 +1,6 @@
 ## Purpose
 
-This repo is **Java Dependency Analyzer** (v1.2.2), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
+This repo is **Java Dependency Analyzer** (v1.3.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
 
 - Install deps: `poetry install`
 - Run tests + coverage: `poetry run pytest --cov=java_dependency_analyzer tests --cov-report html`
@@ -58,3 +58,8 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - Write to the matching docs file's "Session learnings" section; if none fits, add to Rules above. One dated line, plain language.
   e.g. `Pylint C0114 triggers when module docstring is missing the blank line after triple-quote (learned 4/3)`
 - 3+ related notes on a topic → create a new `docs/` context file, move notes there, update the Tree. Keep this file under 100 lines.
+
+## Session learnings
+- When using `replace_string_in_file` at the end of a test file, always read past the apparent last line (e.g., `endLine=200`) to confirm there are no assertions beyond the visible boundary, or orphaned lines from a partially-matched `oldString` will be silently appended (learned 2026-04-18).
+- Existing tests with short-form Gradle section headers (e.g., `"runtimeClasspath\n"`) break after adding `_SECTION_HEADER_RE`; update them to full-description headers like `"runtimeClasspath - Runtime classpath of source set 'main'.\n"` (learned 2026-04-18).
+- When a single dependency can appear under multiple scopes in the flattened tree, compute per-scope aggregations in `HtmlReporter._compute_vuln_scopes()` and pass the dict to the Jinja2 template; do not pollute `ScanResult` model with display logic (learned 2026-04-18).

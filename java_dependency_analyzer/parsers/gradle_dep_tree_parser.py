@@ -12,7 +12,7 @@ import re
 
 from ..models.dependency import Dependency
 from ..util.logger import setup_logger
-from .base import DepTreeParser
+from .base import DepTreeParser, build_tree_from_lines
 
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
@@ -40,6 +40,26 @@ _CONSTRAINT_SUFFIX = " (c)"
 # Gradle coordinates: group:artifact:version
 _COORD_RE = re.compile(r"^([^:]+):([^:]+):(.+)$")
 
+# Matches a Gradle configuration header line; the first capture group is the
+# configuration name (e.g., ``runtimeClasspath``, ``compileClasspath``).
+_SECTION_HEADER_RE = re.compile(r"^(\w+)\s+-\s+.+$")
+
+# Suffix appended to unresolved dependency declarations in Gradle output
+_NOT_RESOLVED_SUFFIX = " (n)"
+
+
+def _set_scope_recursive(deps: list[Dependency], scope: str) -> None:
+    """
+    Recursively set *scope* on every :class:`~java_dependency_analyzer.models.dependency.Dependency`
+    in *deps* and all of their transitive children.
+
+    :author: Ron Webb
+    :since: 1.2.3
+    """
+    for dep in deps:
+        dep.scope = scope
+        _set_scope_recursive(dep.transitive_dependencies, scope)
+
 
 class GradleDepTreeParser(DepTreeParser):
     """
@@ -47,10 +67,9 @@ class GradleDepTreeParser(DepTreeParser):
     the dependency tree as a list of :class:`~java_dependency_analyzer.models.dependency.Dependency`
     objects with nested ``transitive_dependencies``.
 
-    The parser is format-agnostic regarding the configuration name; it processes
-    the first dependency-tree block it encounters.  Users should redirect the
-    output of the configuration they care about (e.g. ``runtimeClasspath``) into
-    a text file and pass that file here.
+    All configuration sections present in the file are parsed.  Each
+    dependency's ``scope`` is set to the name of its configuration
+    (e.g. ``runtimeClasspath``, ``compileClasspath``).
 
     :author: Ron Webb
     :since: 1.0.0
@@ -68,13 +87,48 @@ class GradleDepTreeParser(DepTreeParser):
 
     def parse(self, file_path: str) -> list[Dependency]:
         """
-        Reset the resolution cache and delegate to the base parser.
+        Parse all configuration sections from the Gradle dependency tree output.
+
+        Each section's configuration name is used as the ``scope`` for every
+        :class:`~java_dependency_analyzer.models.dependency.Dependency` in that
+        section.
 
         :author: Ron Webb
         :since: 1.1.1
         """
-        self._resolutions = {}
-        return super().parse(file_path)
+        lines = self._read_lines(file_path)
+        if lines is None:
+            return []
+        sections = self._extract_config_sections(lines)
+        all_deps: list[Dependency] = []
+        for config_name, section_lines in sections.items():
+            self._resolutions = {}
+            deps = build_tree_from_lines(section_lines, self._line_to_entry)
+            _set_scope_recursive(deps, config_name)
+            all_deps.extend(deps)
+        return all_deps
+
+    @staticmethod
+    def _extract_config_sections(lines: list[str]) -> dict[str, list[str]]:
+        """
+        Split *lines* into per-configuration buckets keyed by configuration name.
+
+        A section starts at a configuration header line (matched by
+        :data:`_SECTION_HEADER_RE`) and ends just before the next header.
+
+        :author: Ron Webb
+        :since: 1.2.3
+        """
+        sections: dict[str, list[str]] = {}
+        current_config: str | None = None
+        for line in lines:
+            header_match = _SECTION_HEADER_RE.match(line)
+            if header_match:
+                current_config = header_match.group(1)
+                sections[current_config] = []
+            elif current_config is not None:
+                sections[current_config].append(line)
+        return sections
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -101,6 +155,9 @@ class GradleDepTreeParser(DepTreeParser):
         is_leaf = coord_str.endswith(_REPEATED_SUFFIX)
         if is_leaf:
             coord_str = coord_str[: -len(_REPEATED_SUFFIX)]
+        elif coord_str.endswith(_NOT_RESOLVED_SUFFIX):
+            is_leaf = True
+            coord_str = coord_str[: -len(_NOT_RESOLVED_SUFFIX)]
 
         dep = self._parse_coordinate(coord_str, depth)
         if dep is None:

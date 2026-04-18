@@ -28,6 +28,7 @@ class ScanResult:
     source_file: str
     scanned_at: str = field(default_factory=lambda: datetime.now().isoformat())
     dependencies: list[Dependency] = field(default_factory=list)
+    project_dir: str | None = field(default=None)
 
     @property
     def total_dependencies(self) -> int:

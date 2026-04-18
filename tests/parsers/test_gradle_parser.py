@@ -143,9 +143,9 @@ class TestGradleParser:
         """A ${variable} with no matching definition should still be skipped."""
         gradle = tmp_path / "build.gradle"
         gradle.write_text(
-            'dependencies {\n'
+            "dependencies {\n"
             '    implementation "com.example:unknown-lib:${undeclaredVar}"\n'
-            '}\n',
+            "}\n",
             encoding="utf-8",
         )
         deps = self.parser.parse(str(gradle))

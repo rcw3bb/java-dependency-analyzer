@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.3.0 - 2026-04-19
+
+### Added
+- `--project` (`-p`) option for both `gradle` and `maven` subcommands: automatically generates the dependency tree from the project directory and runs the scan in one step.
+- `--java-home` option: overrides the `JAVA_HOME` environment variable for the build-tool invocation; can only be used with `--project`.
+- `--use-wrapper` flag: invokes the project wrapper script (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven) instead of the system build tool; can only be used with `--project`.
+- `GradleDepTreeParser` now parses every configuration section (e.g., `compileClasspath`,
+  `runtimeClasspath`, `implementation`) from the Gradle dependency tree output; each
+  dependency's `scope` reflects its Gradle configuration name.
+- Dependencies annotated with the `(n)` unresolved marker in Gradle output are now
+  parsed as leaf nodes with their clean declared version.
+- Scope filter dropdown added to the HTML report, allowing the dependency tree to be
+  filtered by scope (hidden automatically when all dependencies share the same scope).
+- `ScanResult` dataclass gains a `project_dir` field to record the analysed project directory.
+- HTML report now displays the project directory in the scan metadata when `--project` is used.
+
+### Changed
+- `DepTreeParser` exposes a new `_read_lines()` helper with BOM-aware encoding
+  detection, enabling subclasses to reuse file reading without going through `parse()`.
+- `GradleDepTreeParser.parse()` now iterates all configuration sections and stamps each
+  dependency's `scope` with the configuration name instead of the hardcoded `"runtime"` value.
+- JSON report now includes a `project_dir` field in the output.
+- Vulnerability table header renamed from "Scope" to "Scopes" to reflect that a dependency can appear in multiple configuration sections.
+
 ## 1.2.2 - 2026-04-09
 
 ### Added

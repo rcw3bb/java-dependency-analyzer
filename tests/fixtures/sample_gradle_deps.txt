@@ -2,6 +2,9 @@
 Root project 'sample'
 ------------------------------------------------------------
 
+annotationProcessor - Annotation processors and their dependencies for source set 'main'.
+No dependencies
+
 runtimeClasspath - Runtime classpath of source set 'main'.
 +--- org.springframework:spring-core:5.3.39
 |    +--- org.springframework:spring-jcl:5.3.39

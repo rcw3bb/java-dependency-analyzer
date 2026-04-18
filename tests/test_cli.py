@@ -499,3 +499,444 @@ class TestGradleSubcommand:
             ],
         )
         assert result.exit_code == 10, result.output
+
+
+class TestProjectParam:
+    """Tests for the --project, --java-home, and --use-wrapper options."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def _mock_all_http(self, httpx_mock: HTTPXMock) -> None:
+        """Register catch-all HTTP mocks so no real network calls are made."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Mutual exclusion: --java-home / --use-wrapper without --project
+    # ------------------------------------------------------------------
+
+    def test_java_home_without_project_raises_error_gradle(self, tmp_path):
+        """--java-home without --project on gradle should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--java-home",
+                "/fake/java",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--java-home" in result.output or "project" in result.output.lower()
+
+    def test_use_wrapper_without_project_raises_error_gradle(self, tmp_path):
+        """--use-wrapper without --project on gradle should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--use-wrapper",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--use-wrapper" in result.output or "project" in result.output.lower()
+
+    def test_java_home_without_project_raises_error_maven(self, tmp_path):
+        """--java-home without --project on maven should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                str(_FIXTURES / "sample_pom.xml"),
+                "--java-home",
+                "/fake/java",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--java-home" in result.output or "project" in result.output.lower()
+
+    def test_use_wrapper_without_project_raises_error_maven(self, tmp_path):
+        """--use-wrapper without --project on maven should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                str(_FIXTURES / "sample_pom.xml"),
+                "--use-wrapper",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--use-wrapper" in result.output or "project" in result.output.lower()
+
+    # ------------------------------------------------------------------
+    # Mutual exclusion: --project combined with FILE or -d
+    # ------------------------------------------------------------------
+
+    def test_project_with_file_raises_error_gradle(self, tmp_path):
+        """--project combined with FILE on gradle should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--project",
+                str(project_dir),
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--project" in result.output or "FILE" in result.output
+
+    def test_project_with_dependencies_raises_error_gradle(self, tmp_path):
+        """--project combined with -d on gradle should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                "--project",
+                str(project_dir),
+                "--dependencies",
+                str(_FIXTURES / "sample_gradle_deps.txt"),
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--project" in result.output or "--dependencies" in result.output
+
+    def test_project_with_file_raises_error_maven(self, tmp_path):
+        """--project combined with FILE on maven should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                str(_FIXTURES / "sample_pom.xml"),
+                "--project",
+                str(project_dir),
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--project" in result.output or "FILE" in result.output
+
+    def test_project_with_dependencies_raises_error_maven(self, tmp_path):
+        """--project combined with -d on maven should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                "--project",
+                str(project_dir),
+                "--dependencies",
+                str(_FIXTURES / "sample_maven_deps.txt"),
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "--project" in result.output or "--dependencies" in result.output
+
+    # ------------------------------------------------------------------
+    # JAVA_HOME resolution
+    # ------------------------------------------------------------------
+
+    def test_project_no_java_home_raises_error(self, tmp_path, monkeypatch):
+        """--project with no JAVA_HOME in env and no --java-home should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        monkeypatch.delenv("JAVA_HOME", raising=False)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                "--project",
+                str(project_dir),
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "JAVA_HOME" in result.output
+
+    # ------------------------------------------------------------------
+    # use-wrapper: missing wrapper file
+    # ------------------------------------------------------------------
+
+    def test_use_wrapper_missing_gradlew_raises_error(self, tmp_path):
+        """--use-wrapper on gradle when gradlew is absent should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                "--project",
+                str(project_dir),
+                "--java-home",
+                "/fake/java",
+                "--use-wrapper",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower() or "gradlew" in result.output.lower()
+
+    def test_use_wrapper_missing_mvnw_raises_error(self, tmp_path):
+        """--use-wrapper on maven when mvnw is absent should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                "--project",
+                str(project_dir),
+                "--java-home",
+                "/fake/java",
+                "--use-wrapper",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower() or "mvnw" in result.output.lower()
+
+    # ------------------------------------------------------------------
+    # Success cases: --project
+    # ------------------------------------------------------------------
+
+    def test_project_gradle_success(self, httpx_mock: HTTPXMock, tmp_path):
+        """--project on gradle should generate dep-tree, write reports with project_dir."""
+        import json as json_mod  # noqa: PLC0415
+
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_gradle_deps.txt").read_text(
+            encoding="utf-8"
+        )
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "gradle",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--output-format",
+                    "all",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Scan complete" in result.output
+
+        dep_tree_files = list(output_dir.glob("myproject-deps-*.txt"))
+        assert dep_tree_files, "Expected a timestamped dep-tree .txt file"
+
+        json_files = list(output_dir.glob("*-report.json"))
+        assert json_files
+        data = json_mod.loads(json_files[0].read_text(encoding="utf-8"))
+        assert data["project_dir"] is not None
+        assert "myproject" in data["project_dir"]
+
+        html_files = list(output_dir.glob("*-report.html"))
+        assert html_files
+        assert "Project Directory:" in html_files[0].read_text(encoding="utf-8")
+
+    def test_project_maven_success(self, httpx_mock: HTTPXMock, tmp_path):
+        """--project on maven should generate dep-tree, write reports with project_dir."""
+        import json as json_mod  # noqa: PLC0415
+
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "mymavenproject"
+        project_dir.mkdir()
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_maven_deps.txt").read_text(
+            encoding="utf-8"
+        )
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "maven",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--output-format",
+                    "all",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Scan complete" in result.output
+
+        dep_tree_files = list(output_dir.glob("mymavenproject-deps-*.txt"))
+        assert dep_tree_files, "Expected a timestamped dep-tree .txt file"
+
+        json_files = list(output_dir.glob("*-report.json"))
+        assert json_files
+        data = json_mod.loads(json_files[0].read_text(encoding="utf-8"))
+        assert data["project_dir"] is not None
+        assert "mymavenproject" in data["project_dir"]
+
+        html_files = list(output_dir.glob("*-report.html"))
+        assert html_files
+        assert "Project Directory:" in html_files[0].read_text(encoding="utf-8")
+
+    def test_project_gradle_verbose(self, httpx_mock: HTTPXMock, tmp_path):
+        """--project with --verbose on gradle should emit progress messages."""
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "verboseproject"
+        project_dir.mkdir()
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_gradle_deps.txt").read_text(
+            encoding="utf-8"
+        )
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "gradle",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                    "--verbose",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "Running:" in result.output
+        assert "Dependency tree saved" in result.output
+
+    def test_project_uses_java_home_option(self, httpx_mock: HTTPXMock, tmp_path):
+        """--java-home value should be forwarded to the build-tool execution."""
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "jhproject"
+        project_dir.mkdir()
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_gradle_deps.txt").read_text(
+            encoding="utf-8"
+        )
+        captured = {}
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            captured["java_home"] = java_home
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            runner.invoke(
+                main,
+                [
+                    "gradle",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/custom/java/home",
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert captured.get("java_home") == "/custom/java/home"

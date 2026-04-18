@@ -38,6 +38,7 @@ class JsonReporter(Reporter):
         data = {
             "source_file": result.source_file,
             "scanned_at": result.scanned_at,
+            "project_dir": result.project_dir,
             "summary": {
                 "total_dependencies": result.total_dependencies,
                 "total_vulnerabilities": result.total_vulnerabilities,

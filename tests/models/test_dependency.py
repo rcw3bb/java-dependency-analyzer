@@ -20,7 +20,9 @@ class TestVulnerability:
 
     def test_default_values(self):
         """Vulnerability should set sensible defaults."""
-        vuln = Vulnerability(cve_id="CVE-2021-44228", summary="Log4Shell", severity="CRITICAL")
+        vuln = Vulnerability(
+            cve_id="CVE-2021-44228", summary="Log4Shell", severity="CRITICAL"
+        )
         assert vuln.affected_versions == []
         assert vuln.source == "osv"
         assert vuln.reference_url == ""
@@ -45,24 +47,36 @@ class TestDependency:
 
     def test_coordinates_property(self):
         """coordinates should return group:artifact:version."""
-        dep = Dependency(group_id="org.apache.logging.log4j", artifact_id="log4j-core", version="2.14.1")
+        dep = Dependency(
+            group_id="org.apache.logging.log4j",
+            artifact_id="log4j-core",
+            version="2.14.1",
+        )
         assert dep.coordinates == "org.apache.logging.log4j:log4j-core:2.14.1"
 
     def test_maven_path_property(self):
         """maven_path should convert dots to slashes in groupId."""
-        dep = Dependency(group_id="org.apache.logging.log4j", artifact_id="log4j-core", version="2.14.1")
+        dep = Dependency(
+            group_id="org.apache.logging.log4j",
+            artifact_id="log4j-core",
+            version="2.14.1",
+        )
         assert dep.maven_path == "org/apache/logging/log4j/log4j-core/2.14.1"
 
     def test_has_vulnerabilities_direct(self):
         """has_vulnerabilities should return True when self has vulns."""
         dep = Dependency(group_id="g", artifact_id="a", version="1.0")
-        dep.vulnerabilities = [Vulnerability(cve_id="CVE-1", summary="x", severity="HIGH")]
+        dep.vulnerabilities = [
+            Vulnerability(cve_id="CVE-1", summary="x", severity="HIGH")
+        ]
         assert dep.has_vulnerabilities() is True
 
     def test_has_vulnerabilities_transitive(self):
         """has_vulnerabilities should return True when a transitive dep has vulns."""
         child = Dependency(group_id="g", artifact_id="b", version="1.0")
-        child.vulnerabilities = [Vulnerability(cve_id="CVE-2", summary="y", severity="LOW")]
+        child.vulnerabilities = [
+            Vulnerability(cve_id="CVE-2", summary="y", severity="LOW")
+        ]
         parent = Dependency(group_id="g", artifact_id="a", version="1.0")
         parent.transitive_dependencies = [child]
         assert parent.has_vulnerabilities() is True
