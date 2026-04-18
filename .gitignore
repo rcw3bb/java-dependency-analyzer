@@ -39,8 +39,7 @@ build-report.*
 
 # IDE files
 .idea/
-.vscode/*
-!.vscode/settings.json
+.vscode/
 *.swp
 *.swo
 *~
