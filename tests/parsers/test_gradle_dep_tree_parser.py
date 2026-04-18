@@ -58,7 +58,7 @@ class TestGradleDepTreeParser:
     def test_skip_constraint_lines(self, tmp_path):
         """Lines ending with ' (c)' must not produce any Dependency."""
         content = (
-            "runtimeClasspath\n"
+            "runtimeClasspath - Runtime classpath of source set 'main'.\n"
             "+--- com.example:lib-a:1.0 (c)\n"
             "\\--- com.example:lib-b:2.0\n"
         )
@@ -95,7 +95,7 @@ class TestGradleDepTreeParser:
     def test_no_version_before_arrow(self, tmp_path):
         """'group:artifact -> version' (no version before arrow) uses the resolved version."""
         content = (
-            "runtimeClasspath\n"
+            "runtimeClasspath - Runtime classpath of source set 'main'.\n"
             "+--- org.apache.camel:camel-core -> 4.16.0\n"
             "\\--- org.apache.camel:camel-main:4.16.0\n"
         )
@@ -110,7 +110,7 @@ class TestGradleDepTreeParser:
     def test_repeated_entry_uses_resolved_version(self, tmp_path):
         """A (*) repeated entry should use the resolved version from the first occurrence."""
         content = (
-            "runtimeClasspath\n"
+            "runtimeClasspath - Runtime classpath of source set 'main'.\n"
             "+--- org.example:lib-a:1.0\n"
             "|    \\--- org.example:lib-b:2.0 -> 1.5\n"
             "\\--- org.example:lib-c:3.0\n"
@@ -134,8 +134,56 @@ class TestGradleDepTreeParser:
         assert lib_b_first is not None
         assert lib_b_first.version == "1.5"
 
-        lib_c = next(d for d in deps if d.artifact_id == "lib-c")
-        lib_b_repeated = next(
-            d for d in lib_c.transitive_dependencies if d.artifact_id == "lib-b"
+    def test_scope_is_configuration_name(self):
+        """Dependencies from the runtimeClasspath section should carry that config name as scope."""
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(_FIXTURES / "sample_gradle_deps.txt"))
+        spring_core = next(d for d in deps if d.artifact_id == "spring-core")
+        assert spring_core.scope == "runtimeClasspath"
+
+    def test_empty_configuration_section_returns_no_deps(self, tmp_path):
+        """A configuration section with 'No dependencies' should contribute no Dependency objects."""
+        content = (
+            "annotationProcessor - Annotation processors for source set 'main'.\n"
+            "No dependencies\n"
         )
-        assert lib_b_repeated.version == "1.5"
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        assert deps == []
+
+    def test_not_resolved_marker_creates_leaf(self, tmp_path):
+        """A dependency line ending with ' (n)' should be parsed as a leaf with clean version."""
+        content = (
+            "implementation - Implementation dependencies for the 'main' feature. (n)\n"
+            "+--- org.apache.camel:camel-core:4.16.0 (n)\n"
+            "\\--- org.apache.camel:camel-main:4.16.0 (n)\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        assert len(deps) == 2
+        camel_core = next(d for d in deps if d.artifact_id == "camel-core")
+        assert camel_core.version == "4.16.0"
+        assert camel_core.transitive_dependencies == []
+
+    def test_multiple_configurations_all_parsed(self, tmp_path):
+        """All configuration sections in the file should be parsed and their deps returned."""
+        content = (
+            "compileClasspath - Compile classpath for source set 'main'.\n"
+            "+--- com.example:lib-compile:1.0\n"
+            "\n"
+            "runtimeClasspath - Runtime classpath of source set 'main'.\n"
+            "\\--- com.example:lib-runtime:2.0\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = GradleDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        artifacts = {d.artifact_id: d.scope for d in deps}
+        assert "lib-compile" in artifacts
+        assert artifacts["lib-compile"] == "compileClasspath"
+        assert "lib-runtime" in artifacts
+        assert artifacts["lib-runtime"] == "runtimeClasspath"

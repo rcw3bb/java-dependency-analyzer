@@ -82,3 +82,43 @@ class TestMavenDepTreeParser:
         child_artifacts = {d.artifact_id for d in logback.transitive_dependencies}
         assert "logback-core" in child_artifacts
         assert "slf4j-api" in child_artifacts
+
+    def test_processes_test_scope_dependency(self, tmp_path):
+        """Dependencies with scope 'test' should be parsed and carry that scope."""
+        content = (
+            "[INFO] Scanning for projects...\n"
+            "[INFO] \n"
+            "[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ sample ---\n"
+            "[INFO] xyz.ronella.sample:sample:jar:1.0-SNAPSHOT\n"
+            "[INFO] \\- org.junit.jupiter:junit-jupiter:jar:5.10.0:test\n"
+            "[INFO] ------------------------------------------------------------------------\n"
+            "[INFO] BUILD SUCCESS\n"
+            "[INFO] ------------------------------------------------------------------------\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = MavenDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        assert len(deps) == 1
+        assert deps[0].artifact_id == "junit-jupiter"
+        assert deps[0].scope == "test"
+
+    def test_processes_runtime_scope_dependency(self, tmp_path):
+        """Dependencies with scope 'runtime' should be parsed and carry that scope."""
+        content = (
+            "[INFO] Scanning for projects...\n"
+            "[INFO] \n"
+            "[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ sample ---\n"
+            "[INFO] xyz.ronella.sample:sample:jar:1.0-SNAPSHOT\n"
+            "[INFO] \\- ch.qos.logback:logback-classic:jar:1.5.6:runtime\n"
+            "[INFO] ------------------------------------------------------------------------\n"
+            "[INFO] BUILD SUCCESS\n"
+            "[INFO] ------------------------------------------------------------------------\n"
+        )
+        dep_file = tmp_path / "deps.txt"
+        dep_file.write_text(content, encoding="utf-8")
+        parser = MavenDepTreeParser()
+        deps = parser.parse(str(dep_file))
+        assert len(deps) == 1
+        assert deps[0].artifact_id == "logback-classic"
+        assert deps[0].scope == "runtime"

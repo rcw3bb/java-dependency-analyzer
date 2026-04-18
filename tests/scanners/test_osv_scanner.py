@@ -48,7 +48,10 @@ _OSV_RESPONSE = {
                 }
             ],
             "references": [
-                {"type": "WEB", "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"}
+                {
+                    "type": "WEB",
+                    "url": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+                }
             ],
         }
     ]
@@ -77,7 +80,9 @@ class TestOsvScanner:
 
     def test_scan_returns_empty_when_no_vulns(self, httpx_mock: HTTPXMock):
         """scan() should return an empty list when OSV finds nothing."""
-        httpx_mock.add_response(url="https://api.osv.dev/v1/query", json=_EMPTY_RESPONSE)
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query", json=_EMPTY_RESPONSE
+        )
         with httpx.Client() as client:
             scanner = OsvScanner(client=client)
             vulns = scanner.scan(_LOG4J)
@@ -105,7 +110,9 @@ class TestOsvScanner:
 
     def test_scan_network_error_returns_empty(self, httpx_mock: HTTPXMock):
         """Network error should return an empty list, not raise."""
-        httpx_mock.add_exception(httpx.ConnectError("timeout"), url="https://api.osv.dev/v1/query")
+        httpx_mock.add_exception(
+            httpx.ConnectError("timeout"), url="https://api.osv.dev/v1/query"
+        )
         with httpx.Client() as client:
             scanner = OsvScanner(client=client)
             vulns = scanner.scan(_LOG4J)
@@ -193,10 +200,14 @@ class TestOsvScannerCache:
             scanner = OsvScanner(client=client, cache=in_memory_cache)
             scanner.scan(_LOG4J)
 
-        stored = in_memory_cache.get("osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        stored = in_memory_cache.get(
+            "osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version
+        )
         assert stored is not None
 
-    def test_cache_hit_returns_osv_cache_source(self, httpx_mock: HTTPXMock, in_memory_cache):
+    def test_cache_hit_returns_osv_cache_source(
+        self, httpx_mock: HTTPXMock, in_memory_cache
+    ):
         """On a cache hit the source field should be 'osv-cache'."""
         httpx_mock.add_response(
             url="https://api.osv.dev/v1/query",
@@ -221,7 +232,9 @@ class TestOsvScannerCache:
             scanner = OsvScanner(client=client, cache=in_memory_cache)
             scanner.scan(_LOG4J)
 
-        stored = in_memory_cache.get("osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version)
+        stored = in_memory_cache.get(
+            "osv", _LOG4J.group_id, _LOG4J.artifact_id, _LOG4J.version
+        )
         assert stored is None
 
     def test_no_cache_still_calls_api(self, httpx_mock: HTTPXMock):

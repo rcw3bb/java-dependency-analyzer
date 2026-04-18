@@ -36,7 +36,11 @@ class TestScanResult:
         """Flat list of 3 deps gives total of 3."""
         result = ScanResult(
             source_file="pom.xml",
-            dependencies=[_make_dep("g", "a"), _make_dep("g", "b"), _make_dep("g", "c")],
+            dependencies=[
+                _make_dep("g", "a"),
+                _make_dep("g", "b"),
+                _make_dep("g", "c"),
+            ],
         )
         assert result.total_dependencies == 3
 

@@ -121,13 +121,14 @@ class DepTreeParser(DependencyParser):
     :since: 1.0.0
     """
 
-    def parse(self, file_path: str) -> list[Dependency]:
+    def _read_lines(self, file_path: str) -> list[str] | None:
         """
-        Read *file_path* and build a dependency tree by passing each line
-        through :meth:`_line_to_entry`.
+        Read *file_path* with BOM-aware encoding detection and return the lines.
+
+        Returns ``None`` when the file cannot be read.
 
         :author: Ron Webb
-        :since: 1.0.0
+        :since: 1.2.3
         """
         _logger.info("Parsing dependency tree from '%s'", file_path)
         try:
@@ -142,9 +143,20 @@ class DepTreeParser(DependencyParser):
                 content = raw.decode("utf-8")
         except OSError as exc:
             _logger.error("Failed to read file: %s", exc)
-            return []
+            return None
+        return content.splitlines()
 
-        lines = content.splitlines()
+    def parse(self, file_path: str) -> list[Dependency]:
+        """
+        Read *file_path* and build a dependency tree by passing each line
+        through :meth:`_line_to_entry`.
+
+        :author: Ron Webb
+        :since: 1.0.0
+        """
+        lines = self._read_lines(file_path)
+        if lines is None:
+            return []
         return build_tree_from_lines(lines, self._line_to_entry)
 
     @abstractmethod

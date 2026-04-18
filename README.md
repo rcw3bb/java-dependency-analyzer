@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.2.2
+# Java Dependency Analyzer 1.3.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 

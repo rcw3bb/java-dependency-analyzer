@@ -71,8 +71,12 @@ class TestHtmlReporter:
 
     def test_report_transitive_dep_included(self, tmp_path):
         """Transitive dependencies should appear in the HTML table."""
-        child = Dependency(group_id="org.child", artifact_id="child-lib", version="2.0", depth=1)
-        parent = Dependency(group_id="org.parent", artifact_id="parent-lib", version="1.0")
+        child = Dependency(
+            group_id="org.child", artifact_id="child-lib", version="2.0", depth=1
+        )
+        parent = Dependency(
+            group_id="org.parent", artifact_id="parent-lib", version="1.0"
+        )
         parent.transitive_dependencies = [child]
         result = ScanResult(source_file="pom.xml", dependencies=[parent])
         out = tmp_path / "report.html"
@@ -91,9 +95,13 @@ class TestHtmlReporter:
     def test_report_deduped_vulnerability_count(self, tmp_path):
         """Same dep appearing twice in tree should count its vulns only once."""
         vuln = Vulnerability(cve_id="CVE-DUP", summary="Dup vuln", severity="HIGH")
-        dep_a = Dependency(group_id="org.example", artifact_id="lib", version="1.0", depth=1)
+        dep_a = Dependency(
+            group_id="org.example", artifact_id="lib", version="1.0", depth=1
+        )
         dep_a.vulnerabilities = [vuln]
-        dep_a_dup = Dependency(group_id="org.example", artifact_id="lib", version="1.0", depth=2)
+        dep_a_dup = Dependency(
+            group_id="org.example", artifact_id="lib", version="1.0", depth=2
+        )
         dep_a_dup.vulnerabilities = [vuln]
         root = Dependency(group_id="org.root", artifact_id="root", version="1.0")
         root.transitive_dependencies = [dep_a, dep_a_dup]
@@ -115,3 +123,57 @@ class TestHtmlReporter:
         content = out.read_text(encoding="utf-8")
         assert "CVE-TEST" in content
         assert "vuln-deps" in content
+
+    def test_report_vuln_list_scopes_column(self, tmp_path):
+        """Vulnerable Dependencies table should have a 'Scopes' column header."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(with_vuln=True), str(out))
+        content = out.read_text(encoding="utf-8")
+        assert "<th>Scopes</th>" in content
+
+    def test_report_vuln_list_multi_scope(self, tmp_path):
+        """Same vulnerable dep in two scopes should list both in the Scopes cell."""
+        vuln = Vulnerability(cve_id="CVE-MULTI", summary="Multi-scope", severity="HIGH")
+        dep_compile = Dependency(
+            group_id="org.example",
+            artifact_id="lib",
+            version="1.0",
+            scope="compile",
+            depth=1,
+        )
+        dep_compile.vulnerabilities = [vuln]
+        dep_runtime = Dependency(
+            group_id="org.example",
+            artifact_id="lib",
+            version="1.0",
+            scope="runtime",
+            depth=1,
+        )
+        dep_runtime.vulnerabilities = [vuln]
+        root = Dependency(group_id="org.root", artifact_id="root", version="1.0")
+        root.transitive_dependencies = [dep_compile, dep_runtime]
+        result = ScanResult(source_file="pom.xml", dependencies=[root])
+        out = tmp_path / "report.html"
+        HtmlReporter().report(result, str(out))
+        content = out.read_text(encoding="utf-8")
+        assert "compile, runtime" in content
+
+    def test_report_scope_filter_bar_global(self, tmp_path):
+        """scope-filter-bar should appear outside of dep-tree-section."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(), str(out))
+        content = out.read_text(encoding="utf-8")
+        # scope-filter-bar must come before dep-tree-section in the document
+        assert content.index("scope-filter-bar") < content.index("dep-tree-section")
+
+    def test_applyfilter_all_does_not_reset_scope(self, tmp_path):
+        """applyFilter('all') must not clear activeScope or scopeSelect.value."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(), str(out))
+        content = out.read_text(encoding="utf-8")
+        # The 'all' branch must call filterByScope(activeScope) to re-apply the scope,
+        # not reset it.  The global declaration 'let activeScope' is still present, but
+        # neither an assignment to '' nor a scopeSelect reset should appear inside the
+        # function body (they were removed as part of this fix).
+        assert "filterByScope(activeScope);" in content
+        assert "scopeSelect.value = '';" not in content

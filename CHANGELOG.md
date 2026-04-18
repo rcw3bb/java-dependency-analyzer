@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.0 - 2026-04-18
+
+### Added
+- `GradleDepTreeParser` now parses every configuration section (e.g., `compileClasspath`,
+  `runtimeClasspath`, `implementation`) from the Gradle dependency tree output; each
+  dependency's `scope` reflects its Gradle configuration name.
+- Dependencies annotated with the `(n)` unresolved marker in Gradle output are now
+  parsed as leaf nodes with their clean declared version.
+- Scope filter dropdown added to the HTML report, allowing the dependency tree to be
+  filtered by scope (hidden automatically when all dependencies share the same scope).
+
+### Changed
+- `DepTreeParser` exposes a new `_read_lines()` helper with BOM-aware encoding
+  detection, enabling subclasses to reuse file reading without going through `parse()`.
+- `GradleDepTreeParser.parse()` now iterates all configuration sections and stamps each
+  dependency's `scope` with the configuration name instead of the hardcoded `"runtime"` value.
+
 ## 1.2.2 - 2026-04-09
 
 ### Added
