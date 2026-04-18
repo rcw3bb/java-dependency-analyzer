@@ -7,7 +7,11 @@ Command-line interface entry point for the Java Dependency Analyzer.
 :since: 1.0.0
 """
 
+import os
+import subprocess
 import sys
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 import click
@@ -17,6 +21,7 @@ from .cache.db import delete_database
 from .cache.vulnerability_cache import VulnerabilityCache
 from .models.dependency import Dependency
 from .models.report import ScanResult
+from .parsers.base import DependencyParser
 from .parsers.gradle_dep_tree_parser import GradleDepTreeParser
 from .parsers.gradle_parser import GradleParser
 from .parsers.maven_dep_tree_parser import MavenDepTreeParser
@@ -83,6 +88,34 @@ _COMMON_OPTIONS = [
         type=int,
         help="Cache TTL in days. Set to 0 to disable caching.",
     ),
+    click.option(
+        "--project",
+        "-p",
+        default=None,
+        type=click.Path(exists=True, file_okay=False, readable=True),
+        help=(
+            "Root directory of the project to analyse. When supplied, the dependency "
+            "tree is generated automatically and FILE / --dependencies must not be used."
+        ),
+    ),
+    click.option(
+        "--java-home",
+        default=None,
+        type=str,
+        help=(
+            "Directory to use as JAVA_HOME. Defaults to the system JAVA_HOME "
+            "environment variable. Can only be used with --project."
+        ),
+    ),
+    click.option(
+        "--use-wrapper",
+        is_flag=True,
+        default=False,
+        help=(
+            "Use the project wrapper script (gradlew/mvnw) instead of the "
+            "system build tool. Can only be used with --project."
+        ),
+    ),
 ]
 
 
@@ -128,7 +161,7 @@ def main() -> None:
     ),
 )
 @_common_options
-def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     file: str | None,
     dependencies: str | None,
     output_format: str,
@@ -137,6 +170,9 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     verbose: bool,
     rebuild_cache: bool,
     cache_ttl: int,
+    project: str | None,
+    java_home: str | None,
+    use_wrapper: bool,
 ) -> None:
     """
     Analyse a Gradle build file (build.gradle or build.gradle.kts) for known
@@ -149,8 +185,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     :author: Ron Webb
     :since: 1.0.0
     """
-    if file is None and dependencies is None:
-        raise click.UsageError("Provide FILE or --dependencies (or both).")
+    _validate_project_params(project, java_home, use_wrapper, file, dependencies)
 
     if file is not None:
         file_path = Path(file).resolve()
@@ -163,33 +198,21 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     cache = _init_cache(rebuild_cache, cache_ttl, verbose)
 
     try:
-        if dependencies is not None:
-            if verbose:
-                click.echo(f"Loading dependency tree from {dependencies}...")
-            parsed_deps = GradleDepTreeParser().parse(dependencies)
-            source = file if file is not None else dependencies
-            found = _run_analysis(
-                parsed_deps,
-                source_file=source,
-                output_format=output_format,
-                output_dir=output_dir,
-                no_transitive=True,
-                verbose=verbose,
-                cache=cache,
-            )
-        else:
-            if verbose:
-                click.echo(f"Parsing {Path(file).name}...")  # type: ignore[arg-type]
-            parsed_deps = GradleParser().parse(file)  # type: ignore[arg-type]
-            found = _run_analysis(
-                parsed_deps,
-                source_file=file,  # type: ignore[arg-type]
-                output_format=output_format,
-                output_dir=output_dir,
-                no_transitive=no_transitive,
-                verbose=verbose,
-                cache=cache,
-            )
+        found = _run_tool_analysis(
+            file,
+            dependencies,
+            output_format,
+            output_dir,
+            no_transitive,
+            verbose,
+            cache,
+            project,
+            java_home,
+            use_wrapper,
+            dep_tree_parser_cls=GradleDepTreeParser,
+            file_parser_cls=GradleParser,
+            build_cmd_fn=_build_gradle_dep_cmd,
+        )
     finally:
         if cache is not None:
             cache.close()
@@ -222,7 +245,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     ),
 )
 @_common_options
-def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     file: str | None,
     dependencies: str | None,
     output_format: str,
@@ -231,6 +254,9 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     verbose: bool,
     rebuild_cache: bool,
     cache_ttl: int,
+    project: str | None,
+    java_home: str | None,
+    use_wrapper: bool,
 ) -> None:
     """
     Analyse a Maven POM file (pom.xml) for known dependency vulnerabilities.
@@ -242,8 +268,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     :author: Ron Webb
     :since: 1.0.0
     """
-    if file is None and dependencies is None:
-        raise click.UsageError("Provide FILE or --dependencies (or both).")
+    _validate_project_params(project, java_home, use_wrapper, file, dependencies)
 
     if file is not None:
         file_path = Path(file).resolve()
@@ -255,33 +280,21 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     cache = _init_cache(rebuild_cache, cache_ttl, verbose)
 
     try:
-        if dependencies is not None:
-            if verbose:
-                click.echo(f"Loading dependency tree from {dependencies}...")
-            parsed_deps = MavenDepTreeParser().parse(dependencies)
-            source = file if file is not None else dependencies
-            found = _run_analysis(
-                parsed_deps,
-                source_file=source,
-                output_format=output_format,
-                output_dir=output_dir,
-                no_transitive=True,
-                verbose=verbose,
-                cache=cache,
-            )
-        else:
-            if verbose:
-                click.echo(f"Parsing {Path(file).name}...")  # type: ignore[arg-type]
-            parsed_deps = MavenParser().parse(file)  # type: ignore[arg-type]
-            found = _run_analysis(
-                parsed_deps,
-                source_file=file,  # type: ignore[arg-type]
-                output_format=output_format,
-                output_dir=output_dir,
-                no_transitive=no_transitive,
-                verbose=verbose,
-                cache=cache,
-            )
+        found = _run_tool_analysis(
+            file,
+            dependencies,
+            output_format,
+            output_dir,
+            no_transitive,
+            verbose,
+            cache,
+            project,
+            java_home,
+            use_wrapper,
+            dep_tree_parser_cls=MavenDepTreeParser,
+            file_parser_cls=MavenParser,
+            build_cmd_fn=_build_maven_dep_cmd,
+        )
     finally:
         if cache is not None:
             cache.close()
@@ -293,6 +306,209 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _validate_project_params(
+    project: str | None,
+    java_home: str | None,
+    use_wrapper: bool,
+    file: str | None,
+    dependencies: str | None,
+) -> None:
+    """
+    Validate mutual exclusion rules for --project, --java-home, and --use-wrapper.
+
+    Raises ``click.UsageError`` when incompatible options are combined or when
+    no input source at all is provided.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    if (java_home is not None or use_wrapper) and project is None:
+        raise click.UsageError(
+            "--java-home and --use-wrapper can only be used with --project."
+        )
+    if project is not None and (file is not None or dependencies is not None):
+        raise click.UsageError(
+            "--project cannot be combined with FILE or --dependencies (-d)."
+        )
+    if project is None and file is None and dependencies is None:
+        raise click.UsageError("Provide FILE, --dependencies (-d), or --project.")
+
+
+def _resolve_java_home(java_home: str | None) -> str:
+    """
+    Return the JAVA_HOME to use for the build-tool invocation.
+
+    Checks *java_home* first, then the ``JAVA_HOME`` environment variable.
+    Raises ``click.UsageError`` when neither is available.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    value = java_home or os.environ.get("JAVA_HOME")
+    if not value:
+        raise click.UsageError(
+            "JAVA_HOME is not set. Supply --java-home or set the JAVA_HOME "
+            "environment variable."
+        )
+    return value
+
+
+def _build_dep_cmd(  # pylint: disable=too-many-arguments
+    project_dir: Path,
+    use_wrapper: bool,
+    *,
+    wrapper_win: str,
+    wrapper_unix: str,
+    tool: str,
+    task: str,
+) -> list[str]:
+    """
+    Build a build-tool command list, shared by Gradle and Maven.
+
+    On Windows the wrapper is invoked via ``cmd /c``; on other platforms it is
+    called directly.  Raises ``click.UsageError`` when ``use_wrapper`` is
+    ``True`` but the expected wrapper script is absent from *project_dir*.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    if use_wrapper:
+        wrapper = project_dir / (
+            wrapper_win if sys.platform == "win32" else wrapper_unix
+        )
+        if not wrapper.exists():
+            raise click.UsageError(
+                f"Build tool wrapper not found at {wrapper}. "
+                "Ensure it exists in the project directory or disable --use-wrapper."
+            )
+        prefix = (
+            ["cmd", "/c", str(wrapper)] if sys.platform == "win32" else [str(wrapper)]
+        )
+        return prefix + [task]
+    if sys.platform == "win32":
+        return ["cmd", "/c", tool, task]
+    return [tool, task]
+
+
+def _build_gradle_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
+    """
+    Build the command list for generating a Gradle dependency tree.
+
+    On Windows the wrapper is ``gradlew.bat`` and is invoked via ``cmd /c``;
+    on other platforms it is ``gradlew`` and called directly.
+
+    Raises ``click.UsageError`` when ``use_wrapper`` is ``True`` but no
+    wrapper script is found in *project_dir*.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    return _build_dep_cmd(
+        project_dir,
+        use_wrapper,
+        wrapper_win="gradlew.bat",
+        wrapper_unix="gradlew",
+        tool="gradle",
+        task="dependencies",
+    )
+
+
+def _build_maven_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
+    """
+    Build the command list for generating a Maven dependency tree.
+
+    On Windows the wrapper is ``mvnw.cmd`` and is invoked via ``cmd /c``;
+    on other platforms it is ``mvnw`` and called directly.
+
+    Raises ``click.UsageError`` when ``use_wrapper`` is ``True`` but no
+    wrapper script is found in *project_dir*.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    return _build_dep_cmd(
+        project_dir,
+        use_wrapper,
+        wrapper_win="mvnw.cmd",
+        wrapper_unix="mvnw",
+        tool="mvn",
+        task="dependency:tree",
+    )
+
+
+def _execute_dep_tree_cmd(
+    cmd: list[str], project_dir: Path, java_home: str, temp_file: Path
+) -> None:
+    """
+    Execute *cmd* in *project_dir* with ``JAVA_HOME`` set, writing stdout to *temp_file*.
+
+    Raises ``click.ClickException`` when the process exits with a non-zero return code.
+    Raises ``click.UsageError`` when the build-tool executable is not found on PATH.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    env = os.environ.copy()
+    env["JAVA_HOME"] = java_home
+    try:
+        with open(temp_file, "w", encoding="utf-8") as out_file:
+            proc = subprocess.run(
+                cmd,
+                cwd=str(project_dir),
+                env=env,
+                stdout=out_file,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+        if proc.returncode != 0:
+            stderr_text = proc.stderr.decode("utf-8", errors="replace").strip()
+            raise click.ClickException(
+                f"Build tool exited with code {proc.returncode}. "
+                f"stderr: {stderr_text}"
+            )
+    except FileNotFoundError as exc:
+        raise click.UsageError(
+            f"Build tool not found: {cmd[0]}. "
+            "Ensure it is installed and available on PATH."
+        ) from exc
+
+
+def _generate_dep_tree(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    project: str,
+    java_home: str | None,
+    use_wrapper: bool,
+    build_cmd_fn: Callable[[Path, bool], list[str]],
+    output_dir: str,
+    verbose: bool,
+) -> Path:
+    """
+    Generate a dependency tree for *project* and save it to a timestamped file.
+
+    Creates *output_dir* when it does not already exist and returns the path of
+    the generated dependency-tree file (the TEMP_FILE).
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    project_dir = Path(project).resolve()
+    java_home_str = _resolve_java_home(java_home)
+    cmd = build_cmd_fn(project_dir, use_wrapper)
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    temp_file = Path(output_dir) / f"{project_dir.name}-deps-{timestamp}.txt"
+
+    if verbose:
+        click.echo(f"Running: {' '.join(cmd)} in {project_dir}...")
+
+    _execute_dep_tree_cmd(cmd, project_dir, java_home_str, temp_file)
+
+    if verbose:
+        click.echo(f"Dependency tree saved to {temp_file}")
+
+    return temp_file
 
 
 def _init_cache(
@@ -320,6 +536,7 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     no_transitive: bool,
     verbose: bool,
     cache: VulnerabilityCache | None,
+    project_dir: str | None = None,
 ) -> bool:
     """
     Resolve transitive dependencies (unless skipped), scan for vulnerabilities,
@@ -348,7 +565,11 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     ghsa = GhsaScanner(cache=cache)
     _scan_all(dependencies, osv, ghsa, verbose)
 
-    result = ScanResult(source_file=source_file, dependencies=dependencies)
+    result = ScanResult(
+        source_file=source_file,
+        dependencies=dependencies,
+        project_dir=project_dir,
+    )
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     _write_reports(result, Path(output_dir), output_format, verbose)
@@ -360,6 +581,79 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     )
 
     return result.total_vulnerabilities > 0
+
+
+def _run_tool_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+    file: str | None,
+    dependencies: str | None,
+    output_format: str,
+    output_dir: str,
+    no_transitive: bool,
+    verbose: bool,
+    cache: VulnerabilityCache | None,
+    project: str | None,
+    java_home: str | None,
+    use_wrapper: bool,
+    dep_tree_parser_cls: type[DependencyParser],
+    file_parser_cls: type[DependencyParser],
+    build_cmd_fn: Callable[[Path, bool], list[str]],
+) -> bool:
+    """
+    Execute the shared ``if project / elif dependencies / else`` analysis flow.
+
+    Selects the appropriate parser based on the supplied arguments, runs the
+    analysis via :func:`_run_analysis`, and returns ``True`` when at least one
+    vulnerability was found.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    if project is not None:
+        temp_file = _generate_dep_tree(
+            project,
+            java_home,
+            use_wrapper,
+            build_cmd_fn,
+            output_dir,
+            verbose,
+        )
+        parsed_deps = dep_tree_parser_cls().parse(str(temp_file))
+        return _run_analysis(
+            parsed_deps,
+            source_file=str(temp_file),
+            output_format=output_format,
+            output_dir=output_dir,
+            no_transitive=True,
+            verbose=verbose,
+            cache=cache,
+            project_dir=project,
+        )
+    if dependencies is not None:
+        if verbose:
+            click.echo(f"Loading dependency tree from {dependencies}...")
+        parsed_deps = dep_tree_parser_cls().parse(dependencies)
+        source = file if file is not None else dependencies
+        return _run_analysis(
+            parsed_deps,
+            source_file=source,
+            output_format=output_format,
+            output_dir=output_dir,
+            no_transitive=True,
+            verbose=verbose,
+            cache=cache,
+        )
+    if verbose:
+        click.echo(f"Parsing {Path(file).name}...")  # type: ignore[arg-type]
+    parsed_deps = file_parser_cls().parse(file)  # type: ignore[arg-type]
+    return _run_analysis(
+        parsed_deps,
+        source_file=file,  # type: ignore[arg-type]
+        output_format=output_format,
+        output_dir=output_dir,
+        no_transitive=no_transitive,
+        verbose=verbose,
+        cache=cache,
+    )
 
 
 def _scan_all(

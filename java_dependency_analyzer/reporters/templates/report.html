@@ -94,6 +94,7 @@
 <p class="meta">
   <strong>Source:</strong> {{ result.source_file }}&nbsp;&nbsp;
   <strong>Scanned at:</strong> {{ result.scanned_at }}
+  {% if result.project_dir %}<br><strong>Project Directory:</strong> {{ result.project_dir }}{% endif %}
 </p>
 
 <h2>Summary</h2>
