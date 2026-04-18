@@ -322,7 +322,7 @@ def _validate_project_params(
     no input source at all is provided.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     if (java_home is not None or use_wrapper) and project is None:
         raise click.UsageError(
@@ -344,7 +344,7 @@ def _resolve_java_home(java_home: str | None) -> str:
     Raises ``click.UsageError`` when neither is available.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     value = java_home or os.environ.get("JAVA_HOME")
     if not value:
@@ -372,7 +372,7 @@ def _build_dep_cmd(  # pylint: disable=too-many-arguments
     ``True`` but the expected wrapper script is absent from *project_dir*.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     if use_wrapper:
         wrapper = project_dir / (
@@ -403,7 +403,7 @@ def _build_gradle_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
     wrapper script is found in *project_dir*.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     return _build_dep_cmd(
         project_dir,
@@ -426,7 +426,7 @@ def _build_maven_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
     wrapper script is found in *project_dir*.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     return _build_dep_cmd(
         project_dir,
@@ -448,7 +448,7 @@ def _execute_dep_tree_cmd(
     Raises ``click.UsageError`` when the build-tool executable is not found on PATH.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     env = os.environ.copy()
     env["JAVA_HOME"] = java_home
@@ -490,7 +490,7 @@ def _generate_dep_tree(  # pylint: disable=too-many-arguments,too-many-positiona
     the generated dependency-tree file (the TEMP_FILE).
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     project_dir = Path(project).resolve()
     java_home_str = _resolve_java_home(java_home)
@@ -606,7 +606,7 @@ def _run_tool_analysis(  # pylint: disable=too-many-arguments,too-many-positiona
     vulnerability was found.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.3.0
     """
     if project is not None:
         temp_file = _generate_dep_tree(

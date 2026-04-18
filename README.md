@@ -57,6 +57,9 @@ Omit `FILE` when supplying `--dependencies`.
 
 | Option | Short | Default | Description |
 |---|---|---|---|
+| `--project` | `-p` | | Root directory of the project to analyse. When supplied, the dependency tree is generated automatically and `FILE` / `--dependencies` must not be used. |
+| `--java-home` | | _(system `JAVA_HOME`)_ | Directory to use as `JAVA_HOME`. Can only be used with `--project`. |
+| `--use-wrapper` | | `false` | Use the project wrapper script (`gradlew`/`mvnw`) instead of the system build tool. Can only be used with `--project`. |
 | `--dependencies` | `-d` | | Path to a pre-resolved dependency tree text file (see below). When supplied, parsing and transitive resolution are skipped. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
 | `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
@@ -71,6 +74,22 @@ Omit `FILE` when supplying `--dependencies`.
 |---|---|
 | `0` | Scan completed successfully; no vulnerabilities found. |
 | `10` | Scan completed successfully; at least one vulnerability was detected. |
+
+### Analysing a project directly (`--project`)
+
+When a Gradle or Maven project is available locally, pass its root directory to `--project` and `jda` will generate the dependency tree automatically before scanning:
+
+```bash
+# Gradle project using the system gradle
+jda gradle --project /path/to/my-project
+
+# Maven project using the project wrapper, with a custom JAVA_HOME
+jda maven --project /path/to/my-project --use-wrapper --java-home /usr/lib/jvm/java-21
+```
+
+- `--java-home` overrides the `JAVA_HOME` environment variable for the invocation. If neither is set, the command fails with a clear error.
+- `--use-wrapper` invokes `gradlew`/`gradlew.bat` (Gradle) or `mvnw`/`mvnw.cmd` (Maven) from the project root. A `UsageError` is raised when the wrapper script is absent.
+- `--project` is mutually exclusive with both `FILE` and `--dependencies`.
 
 ### Pre-resolved dependency trees (`--dependencies`)
 
@@ -111,6 +130,18 @@ Scan using a pre-resolved Maven dependency tree (skips transitive resolution):
 
 ```bash
 jda maven --dependencies maven.txt -f json -o reports/
+```
+
+Analyse a Gradle project directly (auto-generates the dependency tree):
+
+```bash
+jda gradle --project /path/to/my-gradle-project --use-wrapper
+```
+
+Analyse a Maven project directly with a custom JAVA_HOME:
+
+```bash
+jda maven --project /path/to/my-maven-project --java-home /usr/lib/jvm/java-21
 ```
 
 ## Configuration
