@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.3.0
+# Java Dependency Analyzer 1.4.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -44,6 +44,12 @@ jda gradle [OPTIONS] [FILE]
 `FILE` is the path to a `build.gradle` or `build.gradle.kts` file.
 Omit `FILE` when supplying `--dependencies`.
 
+#### Gradle-only options
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--module` | | _(none)_ | Gradle module name. When supplied, the dependency task becomes `<module>:dependencies`. Can only be used with `--project`. |
+
 ### maven
 
 ```
@@ -60,6 +66,7 @@ Omit `FILE` when supplying `--dependencies`.
 | `--project` | `-p` | | Root directory of the project to analyse. When supplied, the dependency tree is generated automatically and `FILE` / `--dependencies` must not be used. |
 | `--java-home` | | _(system `JAVA_HOME`)_ | Directory to use as `JAVA_HOME`. Can only be used with `--project`. |
 | `--use-wrapper` | | `false` | Use the project wrapper script (`gradlew`/`mvnw`) instead of the system build tool. Can only be used with `--project`. |
+| `--wrapper` | | _(none)_ | Custom wrapper script name to use instead of the default (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven). Can only be used with `--use-wrapper`. |
 | `--dependencies` | `-d` | | Path to a pre-resolved dependency tree text file (see below). When supplied, parsing and transitive resolution are skipped. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
 | `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
@@ -83,12 +90,20 @@ When a Gradle or Maven project is available locally, pass its root directory to 
 # Gradle project using the system gradle
 jda gradle --project /path/to/my-project
 
+# Gradle multi-module project, analyse the :api module
+jda gradle --project /path/to/my-project --module api
+
 # Maven project using the project wrapper, with a custom JAVA_HOME
 jda maven --project /path/to/my-project --use-wrapper --java-home /usr/lib/jvm/java-21
+
+# Gradle project using a custom wrapper script name
+jda gradle --project /path/to/my-project --use-wrapper --wrapper gradlew-local
 ```
 
 - `--java-home` overrides the `JAVA_HOME` environment variable for the invocation. If neither is set, the command fails with a clear error.
 - `--use-wrapper` invokes `gradlew`/`gradlew.bat` (Gradle) or `mvnw`/`mvnw.cmd` (Maven) from the project root. A `UsageError` is raised when the wrapper script is absent.
+- `--wrapper` overrides the default wrapper script name used by `--use-wrapper`. Can only be used with `--use-wrapper`.
+- `--module` (Gradle only) specifies a sub-module; the dependency task becomes `<module>:dependencies`. Can only be used with `--project`.
 - `--project` is mutually exclusive with both `FILE` and `--dependencies`.
 
 ### Pre-resolved dependency trees (`--dependencies`)
@@ -144,6 +159,12 @@ Analyse a Maven project directly with a custom JAVA_HOME:
 jda maven --project /path/to/my-maven-project --java-home /usr/lib/jvm/java-21
 ```
 
+Analyse a specific Gradle module using a custom wrapper script:
+
+```bash
+jda gradle --project /path/to/my-gradle-project --module api --use-wrapper --wrapper gradlew-local
+```
+
 ## Configuration
 
 | Environment Variable | Required | Default | Description |
@@ -153,6 +174,7 @@ jda maven --project /path/to/my-maven-project --java-home /usr/lib/jvm/java-21
 | `OSV_QUERY_URL` | No | `https://api.osv.dev/v1/query` | Override the OSV.dev single-query endpoint used by `OsvScanner`. |
 | `OSV_VULN_URL` | No | `https://osv.dev/vulnerability/` | Override the OSV.dev vulnerability detail base URL embedded in reports. |
 | `MAVEN_CENTRAL_URL` | No | `https://repo1.maven.org/maven2` | Override the Maven Central repository URL used by `TransitiveResolver` to fetch POM files. |
+| `JDA_CONFIG_DIR` | No | _(none)_ | Directory used to store and load a custom `logging.ini`. On first run, the bundled `logging.ini` is seeded into this directory. If not set, the bundled config is loaded directly from the package. |
 
 Set it in your shell or in a `.env` file in the working directory before running `jda`:
 
@@ -166,17 +188,21 @@ GITHUB_TOKEN=ghp_yourTokenHere
 
 ## Logging
 
-The tool writes logs to `java_dependency_analyzer.log` in the current working directory, in addition to printing them to the console (`stderr`).
+The tool writes logs to `java_dependency_analyzer.log` in the current working directory and prints progress messages to the console via Rich.
 
-Logging requires a `logging.ini` file to be present in the working directory or any of its parent directories. The logger walks up the directory tree until it finds one.
+A `logging.ini` is **bundled inside the package** and loaded automatically — no manual setup is required after installation.
 
-**When installed via pip**, no `logging.ini` is bundled. Without it the tool falls back to console-only logging (no log file is created). To enable file logging, copy `logging.ini` from the [repository](https://github.com/rcw3bb/java-dependency-analyzer/blob/master/logging.ini) to your working directory:
+### Custom logging configuration
+
+To override the default logging settings, set the `JDA_CONFIG_DIR` environment variable to a directory path. On first run, `jda` seeds the bundled `logging.ini` into that directory; edit the copy there to customise log levels, file paths, or handlers:
 
 ```bash
-curl -O https://raw.githubusercontent.com/rcw3bb/java-dependency-analyzer/master/logging.ini
-```
+# shell
+export JDA_CONFIG_DIR=/path/to/my-config
 
-Then run `jda` from that same directory.
+# or in .env
+JDA_CONFIG_DIR=/path/to/my-config
+```
 
 ## Architecture
 

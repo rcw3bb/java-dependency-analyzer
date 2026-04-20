@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.0 - 2026-04-21
+
+### Added
+- `--wrapper` option for both `gradle` and `maven` subcommands: specifies a custom wrapper script name to use instead of the default (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven); can only be used with `--use-wrapper`.
+- `--module` option for the `gradle` subcommand: specifies a Gradle module name so that the dependency task becomes `<module>:dependencies`; can only be used with `--project`.
+- `GHSA_API_VERSION` environment variable to configure the GitHub Advisory API version header (defaults to `2026-03-10`).
+- `JDA_CONFIG_DIR` environment variable: when set, `setup_logger()` creates the directory if absent, seeds it with the bundled `logging.ini` on first run, and loads config from there.
+- Rich status spinner displayed in the terminal during dependency scanning and report writing.
+
+### Changed
+- `logging.ini` moved from the repository root into the `java_dependency_analyzer` package and loaded via `importlib.resources`; the root-level `logging.ini` has been removed.
+- `logging.ini` now configures only `fileHandler`; `RichHandler` is attached programmatically by `setup_logger()` for all console output.
+- `setup_logger()` resolves `logging.ini` from the package (or from `JDA_CONFIG_DIR`); the walk-up directory search has been removed.
+- GHSA API version header updated from `2022-11-28` to `2026-03-10`.
+
+### Removed
+- Root-level `logging.ini` replaced by the bundled package version.
+
 ## 1.3.0 - 2026-04-19
 
 ### Added

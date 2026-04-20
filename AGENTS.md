@@ -1,6 +1,6 @@
 ## Purpose
 
-This repo is **Java Dependency Analyzer** (v1.3.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
+This repo is **Java Dependency Analyzer** (v1.4.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
 
 - Install deps: `poetry install`
 - Run tests + coverage: `poetry run pytest --cov=java_dependency_analyzer tests --cov-report html`
@@ -19,11 +19,13 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - `java_dependency_analyzer/cache/` — SQLite cache sub-package
 - `java_dependency_analyzer/reporters/` — report writer sub-package
 - `java_dependency_analyzer/reporters/templates/` — Jinja2 HTML report templates
+- `java_dependency_analyzer/logging.ini` — logging config (FileHandler only; rich owns console); bundled in the wheel
 - `java_dependency_analyzer/cli.py` — Click CLI entry point (`jda` group with `gradle` and `maven` subcommands)
 - `tests/` — test package mirroring the main package structure; all tests go here
 - `tests/conftest.py` — global pytest fixtures; activates `httpx_mock` for every test to block all real HTTP calls
+- `tests/util/test_logger.py` — tests for `util/logger.py` (JDA_CONFIG_DIR logic, RichHandler idempotency)
 - `tests/fixtures/` — sample fixture files for parsers and CLI tests
-- `pyproject.toml` — Poetry PEP 621 project config; use `poetry add` / `poetry add --dev`
+- `pyproject.toml` — Poetry PEP 621 project config; use `poetry add` / `poetry add --dev`; `include` points to `java_dependency_analyzer/logging.ini`
 - `LICENSE` — MIT License
 - `logging.ini` — logging config (FileHandler + StreamHandler); log file: `java_dependency_analyzer.log`
 - `.pylintrc` — Pylint config based on rcw3bb's gist
@@ -63,3 +65,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - When using `replace_string_in_file` at the end of a test file, always read past the apparent last line (e.g., `endLine=200`) to confirm there are no assertions beyond the visible boundary, or orphaned lines from a partially-matched `oldString` will be silently appended (learned 2026-04-18).
 - Existing tests with short-form Gradle section headers (e.g., `"runtimeClasspath\n"`) break after adding `_SECTION_HEADER_RE`; update them to full-description headers like `"runtimeClasspath - Runtime classpath of source set 'main'.\n"` (learned 2026-04-18).
 - When a single dependency can appear under multiple scopes in the flattened tree, compute per-scope aggregations in `HtmlReporter._compute_vuln_scopes()` and pass the dict to the Jinja2 template; do not pollute `ScanResult` model with display logic (learned 2026-04-18).
+- `logging.ini` is now inside `java_dependency_analyzer/` (not the repo root); the `[tool.poetry] include` path must match (learned 2026-04-20).
+- `logging.ini` bundled in the package should have **only** `fileHandler` — `RichHandler` added programmatically in `util/logger.py` owns all console output (learned 2026-04-20).
+- When `JDA_CONFIG_DIR` is not set, `setup_logger` loads the bundled `logging.ini` directly from the package via `importlib.resources`; no cwd walk-up (learned 2026-04-21).
+- When adding a 5th positional param to a function that previously had 4, add `# pylint: disable=too-many-positional-arguments,too-many-arguments` on the `def` line (consistent with earlier note, confirmed 2026-04-20).

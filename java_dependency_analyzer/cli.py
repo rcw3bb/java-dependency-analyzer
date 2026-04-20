@@ -12,9 +12,12 @@ import subprocess
 import sys
 from collections.abc import Callable
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.status import Status
 
 from . import __version__
 from .cache.db import delete_database
@@ -116,6 +119,16 @@ _COMMON_OPTIONS = [
             "system build tool. Can only be used with --project."
         ),
     ),
+    click.option(
+        "--wrapper",
+        default=None,
+        type=str,
+        help=(
+            "Custom wrapper script name to use instead of the default "
+            "(gradlew/gradlew.bat or mvnw/mvnw.cmd). "
+            "Can only be used with --use-wrapper."
+        ),
+    ),
 ]
 
 
@@ -160,10 +173,20 @@ def main() -> None:
         "resolution is skipped."
     ),
 )
+@click.option(
+    "--module",
+    default=None,
+    type=str,
+    help=(
+        "Gradle module name. When supplied, the dependency task becomes "
+        "``<module>:dependencies``. Can only be used with --project."
+    ),
+)
 @_common_options
 def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
     file: str | None,
     dependencies: str | None,
+    module: str | None,
     output_format: str,
     output_dir: str,
     no_transitive: bool,
@@ -173,6 +196,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments,
     project: str | None,
     java_home: str | None,
     use_wrapper: bool,
+    wrapper: str | None,
 ) -> None:
     """
     Analyse a Gradle build file (build.gradle or build.gradle.kts) for known
@@ -185,7 +209,12 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments,
     :author: Ron Webb
     :since: 1.0.0
     """
-    _validate_project_params(project, java_home, use_wrapper, file, dependencies)
+    _validate_project_params(
+        project, java_home, use_wrapper, file, dependencies, wrapper
+    )
+
+    if module is not None and project is None:
+        raise click.UsageError("--module can only be used with --project.")
 
     if file is not None:
         file_path = Path(file).resolve()
@@ -211,7 +240,7 @@ def gradle(  # pylint: disable=too-many-arguments,too-many-positional-arguments,
             use_wrapper,
             dep_tree_parser_cls=GradleDepTreeParser,
             file_parser_cls=GradleParser,
-            build_cmd_fn=_build_gradle_dep_cmd,
+            build_cmd_fn=partial(_build_gradle_dep_cmd, module=module, wrapper=wrapper),
         )
     finally:
         if cache is not None:
@@ -257,6 +286,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
     project: str | None,
     java_home: str | None,
     use_wrapper: bool,
+    wrapper: str | None,
 ) -> None:
     """
     Analyse a Maven POM file (pom.xml) for known dependency vulnerabilities.
@@ -268,7 +298,9 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
     :author: Ron Webb
     :since: 1.0.0
     """
-    _validate_project_params(project, java_home, use_wrapper, file, dependencies)
+    _validate_project_params(
+        project, java_home, use_wrapper, file, dependencies, wrapper
+    )
 
     if file is not None:
         file_path = Path(file).resolve()
@@ -293,7 +325,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
             use_wrapper,
             dep_tree_parser_cls=MavenDepTreeParser,
             file_parser_cls=MavenParser,
-            build_cmd_fn=_build_maven_dep_cmd,
+            build_cmd_fn=partial(_build_maven_dep_cmd, wrapper=wrapper),
         )
     finally:
         if cache is not None:
@@ -308,15 +340,16 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
 # ---------------------------------------------------------------------------
 
 
-def _validate_project_params(
+def _validate_project_params(  # pylint: disable=too-many-positional-arguments,too-many-arguments
     project: str | None,
     java_home: str | None,
     use_wrapper: bool,
     file: str | None,
     dependencies: str | None,
+    wrapper: str | None = None,
 ) -> None:
     """
-    Validate mutual exclusion rules for --project, --java-home, and --use-wrapper.
+    Validate mutual exclusion rules for --project, --java-home, --use-wrapper, and --wrapper.
 
     Raises ``click.UsageError`` when incompatible options are combined or when
     no input source at all is provided.
@@ -324,6 +357,8 @@ def _validate_project_params(
     :author: Ron Webb
     :since: 1.3.0
     """
+    if wrapper is not None and not use_wrapper:
+        raise click.UsageError("--wrapper can only be used with --use-wrapper.")
     if (java_home is not None or use_wrapper) and project is None:
         raise click.UsageError(
             "--java-home and --use-wrapper can only be used with --project."
@@ -363,6 +398,7 @@ def _build_dep_cmd(  # pylint: disable=too-many-arguments
     wrapper_unix: str,
     tool: str,
     task: str,
+    wrapper: str | None = None,
 ) -> list[str]:
     """
     Build a build-tool command list, shared by Gradle and Maven.
@@ -371,20 +407,27 @@ def _build_dep_cmd(  # pylint: disable=too-many-arguments
     called directly.  Raises ``click.UsageError`` when ``use_wrapper`` is
     ``True`` but the expected wrapper script is absent from *project_dir*.
 
+    When *wrapper* is supplied it overrides the default platform wrapper script name.
+
     :author: Ron Webb
     :since: 1.3.0
     """
     if use_wrapper:
-        wrapper = project_dir / (
-            wrapper_win if sys.platform == "win32" else wrapper_unix
-        )
-        if not wrapper.exists():
+        if wrapper is not None:
+            wrapper_path = project_dir / wrapper
+        else:
+            wrapper_path = project_dir / (
+                wrapper_win if sys.platform == "win32" else wrapper_unix
+            )
+        if not wrapper_path.exists():
             raise click.UsageError(
-                f"Build tool wrapper not found at {wrapper}. "
+                f"Build tool wrapper not found at {wrapper_path}. "
                 "Ensure it exists in the project directory or disable --use-wrapper."
             )
         prefix = (
-            ["cmd", "/c", str(wrapper)] if sys.platform == "win32" else [str(wrapper)]
+            ["cmd", "/c", str(wrapper_path)]
+            if sys.platform == "win32"
+            else [str(wrapper_path)]
         )
         return prefix + [task]
     if sys.platform == "win32":
@@ -392,12 +435,21 @@ def _build_dep_cmd(  # pylint: disable=too-many-arguments
     return [tool, task]
 
 
-def _build_gradle_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
+def _build_gradle_dep_cmd(
+    project_dir: Path,
+    use_wrapper: bool,
+    *,
+    module: str | None = None,
+    wrapper: str | None = None,
+) -> list[str]:
     """
     Build the command list for generating a Gradle dependency tree.
 
     On Windows the wrapper is ``gradlew.bat`` and is invoked via ``cmd /c``;
     on other platforms it is ``gradlew`` and called directly.
+
+    When *module* is supplied the task becomes ``<module>:dependencies``.
+    When *wrapper* is supplied it overrides the default wrapper script name.
 
     Raises ``click.UsageError`` when ``use_wrapper`` is ``True`` but no
     wrapper script is found in *project_dir*.
@@ -405,22 +457,31 @@ def _build_gradle_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
     :author: Ron Webb
     :since: 1.3.0
     """
+    task = f"{module}:dependencies" if module else "dependencies"
     return _build_dep_cmd(
         project_dir,
         use_wrapper,
         wrapper_win="gradlew.bat",
         wrapper_unix="gradlew",
         tool="gradle",
-        task="dependencies",
+        task=task,
+        wrapper=wrapper,
     )
 
 
-def _build_maven_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
+def _build_maven_dep_cmd(
+    project_dir: Path,
+    use_wrapper: bool,
+    *,
+    wrapper: str | None = None,
+) -> list[str]:
     """
     Build the command list for generating a Maven dependency tree.
 
     On Windows the wrapper is ``mvnw.cmd`` and is invoked via ``cmd /c``;
     on other platforms it is ``mvnw`` and called directly.
+
+    When *wrapper* is supplied it overrides the default wrapper script name.
 
     Raises ``click.UsageError`` when ``use_wrapper`` is ``True`` but no
     wrapper script is found in *project_dir*.
@@ -435,6 +496,7 @@ def _build_maven_dep_cmd(project_dir: Path, use_wrapper: bool) -> list[str]:
         wrapper_unix="mvnw",
         tool="mvn",
         task="dependency:tree",
+        wrapper=wrapper,
     )
 
 
@@ -563,7 +625,9 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
 
     osv = OsvScanner(cache=cache)
     ghsa = GhsaScanner(cache=cache)
-    _scan_all(dependencies, osv, ghsa, verbose)
+    _console = Console(stderr=True)
+    with _console.status("Scanning dependencies...") as _status:
+        _scan_all(dependencies, osv, ghsa, verbose, _status)
 
     result = ScanResult(
         source_file=source_file,
@@ -572,7 +636,8 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     )
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    _write_reports(result, Path(output_dir), output_format, verbose)
+    with _console.status("Writing reports...") as _status:
+        _write_reports(result, Path(output_dir), output_format, verbose, _status)
 
     click.echo(
         f"\nScan complete. "
@@ -656,11 +721,12 @@ def _run_tool_analysis(  # pylint: disable=too-many-arguments,too-many-positiona
     )
 
 
-def _scan_all(
+def _scan_all(  # pylint: disable=too-many-positional-arguments,too-many-arguments
     dependencies: list[Dependency],
     osv: OsvScanner,
     ghsa: GhsaScanner,
     verbose: bool,
+    status: Status | None = None,
 ) -> None:
     """
     Recursively scan all dependencies (direct + transitive) for vulnerabilities.
@@ -673,7 +739,9 @@ def _scan_all(
     :since: 1.0.0
     """
     for dep in dependencies:
-        if verbose:
+        if status is not None:
+            status.update(f"Scanning {dep.coordinates}...")
+        elif verbose:
             click.echo(f"  Scanning {dep.coordinates}...")
         if not ghsa.rate_limited:
             ghsa_vulns = ghsa.scan(dep)
@@ -687,11 +755,15 @@ def _scan_all(
         else:
             ghsa_vulns = []
         dep.vulnerabilities = ghsa_vulns if ghsa_vulns else osv.scan(dep)
-        _scan_all(dep.transitive_dependencies, osv, ghsa, verbose)
+        _scan_all(dep.transitive_dependencies, osv, ghsa, verbose, status)
 
 
-def _write_reports(
-    result: ScanResult, output_dir: Path, output_format: str, verbose: bool
+def _write_reports(  # pylint: disable=too-many-positional-arguments,too-many-arguments
+    result: ScanResult,
+    output_dir: Path,
+    output_format: str,
+    verbose: bool,
+    status: Status | None = None,
 ) -> None:
     """
     Write one or both report formats based on the --output-format flag.
@@ -703,12 +775,16 @@ def _write_reports(
 
     if output_format in ("json", "all"):
         json_path = output_dir / f"{stem}-report.json"
+        if status is not None:
+            status.update(f"Writing JSON report to {json_path}...")
         JsonReporter().report(result, str(json_path))
         if verbose:
             click.echo(f"JSON report: {json_path}")
 
     if output_format in ("html", "all"):
         html_path = output_dir / f"{stem}-report.html"
+        if status is not None:
+            status.update(f"Writing HTML report to {html_path}...")
         HtmlReporter().report(result, str(html_path))
         if verbose:
             click.echo(f"HTML report: {html_path}")

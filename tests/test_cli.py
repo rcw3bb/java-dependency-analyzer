@@ -940,3 +940,308 @@ class TestProjectParam:
             )
 
         assert captured.get("java_home") == "/custom/java/home"
+
+
+class TestWrapperParam:
+    """Tests for the --wrapper option on both gradle and maven subcommands."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def _mock_all_http(self, httpx_mock: HTTPXMock) -> None:
+        """Register catch-all HTTP mocks so no real network calls are made."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+
+    # ------------------------------------------------------------------
+    # --wrapper without --use-wrapper
+    # ------------------------------------------------------------------
+
+    def test_wrapper_without_use_wrapper_raises_error_gradle(self, tmp_path):
+        """--wrapper without --use-wrapper on gradle should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--wrapper",
+                "custom_gradlew",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower() or "use-wrapper" in result.output
+
+    def test_wrapper_without_use_wrapper_raises_error_maven(self, tmp_path):
+        """--wrapper without --use-wrapper on maven should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                str(_FIXTURES / "sample_pom.xml"),
+                "--wrapper",
+                "custom_mvnw",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower() or "use-wrapper" in result.output
+
+    # ------------------------------------------------------------------
+    # --wrapper with missing custom wrapper file
+    # ------------------------------------------------------------------
+
+    def test_wrapper_custom_file_missing_raises_error_gradle(self, tmp_path):
+        """--wrapper with a missing custom script on gradle should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                "--project",
+                str(project_dir),
+                "--java-home",
+                "/fake/java",
+                "--use-wrapper",
+                "--wrapper",
+                "my_gradlew",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower()
+
+    def test_wrapper_custom_file_missing_raises_error_maven(self, tmp_path):
+        """--wrapper with a missing custom script on maven should raise UsageError."""
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "maven",
+                "--project",
+                str(project_dir),
+                "--java-home",
+                "/fake/java",
+                "--use-wrapper",
+                "--wrapper",
+                "my_mvnw",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "wrapper" in result.output.lower()
+
+    # ------------------------------------------------------------------
+    # --wrapper custom file success paths
+    # ------------------------------------------------------------------
+
+    def test_wrapper_custom_file_success_gradle(self, httpx_mock: HTTPXMock, tmp_path):
+        """--wrapper with an existing script on gradle should succeed and use that script."""
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        custom_wrapper = project_dir / "my_gradlew"
+        custom_wrapper.write_text("#!/bin/sh\ngradle $@", encoding="utf-8")
+
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_gradle_deps.txt").read_text(
+            encoding="utf-8"
+        )
+        captured = {}
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            captured["cmd"] = cmd
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "gradle",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--use-wrapper",
+                    "--wrapper",
+                    "my_gradlew",
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert captured.get("cmd") is not None
+        assert "my_gradlew" in " ".join(captured["cmd"])
+
+    def test_wrapper_custom_file_success_maven(self, httpx_mock: HTTPXMock, tmp_path):
+        """--wrapper with an existing script on maven should succeed and use that script."""
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "mymavenproject"
+        project_dir.mkdir()
+        custom_wrapper = project_dir / "my_mvnw"
+        custom_wrapper.write_text("#!/bin/sh\nmvn $@", encoding="utf-8")
+
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_maven_deps.txt").read_text(
+            encoding="utf-8"
+        )
+        captured = {}
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            captured["cmd"] = cmd
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "maven",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--use-wrapper",
+                    "--wrapper",
+                    "my_mvnw",
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert captured.get("cmd") is not None
+        assert "my_mvnw" in " ".join(captured["cmd"])
+
+
+class TestModuleParam:
+    """Tests for the --module option on the gradle subcommand."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def _mock_all_http(self, httpx_mock: HTTPXMock) -> None:
+        """Register catch-all HTTP mocks so no real network calls are made."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+
+    def test_module_without_project_raises_error(self, tmp_path):
+        """--module without --project on gradle should raise UsageError."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "gradle",
+                str(_FIXTURES / "sample_build.gradle"),
+                "--module",
+                "mymod",
+                "--no-transitive",
+                "--output-dir",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code != 0
+        assert "module" in result.output.lower() or "project" in result.output.lower()
+
+    def test_module_with_project_uses_module_task(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
+        """--module with --project should produce a task of the form <module>:dependencies."""
+        self._mock_all_http(httpx_mock)
+        project_dir = tmp_path / "myproject"
+        project_dir.mkdir()
+        output_dir = tmp_path / "reports"
+        fixture_content = (_FIXTURES / "sample_gradle_deps.txt").read_text(
+            encoding="utf-8"
+        )
+        captured = {}
+
+        def _fake_execute(cmd, cwd, java_home, temp_file):
+            captured["cmd"] = cmd
+            temp_file.write_text(fixture_content, encoding="utf-8")
+
+        runner = CliRunner()
+        with patch(
+            "java_dependency_analyzer.cli._execute_dep_tree_cmd",
+            side_effect=_fake_execute,
+        ):
+            result = runner.invoke(
+                main,
+                [
+                    "gradle",
+                    "--project",
+                    str(project_dir),
+                    "--java-home",
+                    "/fake/java",
+                    "--module",
+                    "mymod",
+                    "--output-format",
+                    "json",
+                    "--output-dir",
+                    str(output_dir),
+                    "--cache-ttl",
+                    "0",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert captured.get("cmd") is not None
+        assert "mymod:dependencies" in " ".join(captured["cmd"])

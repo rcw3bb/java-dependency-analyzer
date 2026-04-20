@@ -28,7 +28,7 @@ _logger = setup_logger(__name__)
 
 _GHSA_API_URL = os.getenv("GHSA_API_URL", "https://api.github.com/advisories")
 _ACCEPT_HEADER = "application/vnd.github+json"
-_API_VERSION_HEADER = "2022-11-28"
+_API_VERSION_HEADER = os.getenv("GHSA_API_VERSION", "2026-03-10")
 
 
 class GhsaScanner(VulnerabilityScanner):
