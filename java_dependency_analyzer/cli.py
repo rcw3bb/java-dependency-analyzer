@@ -16,6 +16,8 @@ from functools import partial
 from pathlib import Path
 
 import click
+from rich.console import Console
+from rich.status import Status
 
 from . import __version__
 from .cache.db import delete_database
@@ -623,7 +625,9 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
 
     osv = OsvScanner(cache=cache)
     ghsa = GhsaScanner(cache=cache)
-    _scan_all(dependencies, osv, ghsa, verbose)
+    _console = Console(stderr=True)
+    with _console.status("Scanning dependencies...") as _status:
+        _scan_all(dependencies, osv, ghsa, verbose, _status)
 
     result = ScanResult(
         source_file=source_file,
@@ -632,7 +636,8 @@ def _run_analysis(  # pylint: disable=too-many-arguments,too-many-positional-arg
     )
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
-    _write_reports(result, Path(output_dir), output_format, verbose)
+    with _console.status("Writing reports...") as _status:
+        _write_reports(result, Path(output_dir), output_format, verbose, _status)
 
     click.echo(
         f"\nScan complete. "
@@ -716,11 +721,12 @@ def _run_tool_analysis(  # pylint: disable=too-many-arguments,too-many-positiona
     )
 
 
-def _scan_all(
+def _scan_all(  # pylint: disable=too-many-positional-arguments,too-many-arguments
     dependencies: list[Dependency],
     osv: OsvScanner,
     ghsa: GhsaScanner,
     verbose: bool,
+    status: Status | None = None,
 ) -> None:
     """
     Recursively scan all dependencies (direct + transitive) for vulnerabilities.
@@ -733,7 +739,9 @@ def _scan_all(
     :since: 1.0.0
     """
     for dep in dependencies:
-        if verbose:
+        if status is not None:
+            status.update(f"Scanning {dep.coordinates}...")
+        elif verbose:
             click.echo(f"  Scanning {dep.coordinates}...")
         if not ghsa.rate_limited:
             ghsa_vulns = ghsa.scan(dep)
@@ -747,11 +755,15 @@ def _scan_all(
         else:
             ghsa_vulns = []
         dep.vulnerabilities = ghsa_vulns if ghsa_vulns else osv.scan(dep)
-        _scan_all(dep.transitive_dependencies, osv, ghsa, verbose)
+        _scan_all(dep.transitive_dependencies, osv, ghsa, verbose, status)
 
 
-def _write_reports(
-    result: ScanResult, output_dir: Path, output_format: str, verbose: bool
+def _write_reports(  # pylint: disable=too-many-positional-arguments,too-many-arguments
+    result: ScanResult,
+    output_dir: Path,
+    output_format: str,
+    verbose: bool,
+    status: Status | None = None,
 ) -> None:
     """
     Write one or both report formats based on the --output-format flag.
@@ -763,12 +775,16 @@ def _write_reports(
 
     if output_format in ("json", "all"):
         json_path = output_dir / f"{stem}-report.json"
+        if status is not None:
+            status.update(f"Writing JSON report to {json_path}...")
         JsonReporter().report(result, str(json_path))
         if verbose:
             click.echo(f"JSON report: {json_path}")
 
     if output_format in ("html", "all"):
         html_path = output_dir / f"{stem}-report.html"
+        if status is not None:
+            status.update(f"Writing HTML report to {html_path}...")
         HtmlReporter().report(result, str(html_path))
         if verbose:
             click.echo(f"HTML report: {html_path}")

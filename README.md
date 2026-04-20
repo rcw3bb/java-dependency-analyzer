@@ -174,6 +174,7 @@ jda gradle --project /path/to/my-gradle-project --module api --use-wrapper --wra
 | `OSV_QUERY_URL` | No | `https://api.osv.dev/v1/query` | Override the OSV.dev single-query endpoint used by `OsvScanner`. |
 | `OSV_VULN_URL` | No | `https://osv.dev/vulnerability/` | Override the OSV.dev vulnerability detail base URL embedded in reports. |
 | `MAVEN_CENTRAL_URL` | No | `https://repo1.maven.org/maven2` | Override the Maven Central repository URL used by `TransitiveResolver` to fetch POM files. |
+| `JDA_CONFIG_DIR` | No | _(none)_ | Directory used to store and load a custom `logging.ini`. On first run, the bundled `logging.ini` is seeded into this directory. If not set, the bundled config is loaded directly from the package. |
 
 Set it in your shell or in a `.env` file in the working directory before running `jda`:
 
@@ -187,17 +188,21 @@ GITHUB_TOKEN=ghp_yourTokenHere
 
 ## Logging
 
-The tool writes logs to `java_dependency_analyzer.log` in the current working directory, in addition to printing them to the console (`stderr`).
+The tool writes logs to `java_dependency_analyzer.log` in the current working directory and prints progress messages to the console via Rich.
 
-Logging requires a `logging.ini` file to be present in the working directory or any of its parent directories. The logger walks up the directory tree until it finds one.
+A `logging.ini` is **bundled inside the package** and loaded automatically — no manual setup is required after installation.
 
-**When installed via pip**, no `logging.ini` is bundled. Without it the tool falls back to console-only logging (no log file is created). To enable file logging, copy `logging.ini` from the [repository](https://github.com/rcw3bb/java-dependency-analyzer/blob/master/logging.ini) to your working directory:
+### Custom logging configuration
+
+To override the default logging settings, set the `JDA_CONFIG_DIR` environment variable to a directory path. On first run, `jda` seeds the bundled `logging.ini` into that directory; edit the copy there to customise log levels, file paths, or handlers:
 
 ```bash
-curl -O https://raw.githubusercontent.com/rcw3bb/java-dependency-analyzer/master/logging.ini
-```
+# shell
+export JDA_CONFIG_DIR=/path/to/my-config
 
-Then run `jda` from that same directory.
+# or in .env
+JDA_CONFIG_DIR=/path/to/my-config
+```
 
 ## Architecture
 
