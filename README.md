@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.3.0
+# Java Dependency Analyzer 1.4.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -44,6 +44,12 @@ jda gradle [OPTIONS] [FILE]
 `FILE` is the path to a `build.gradle` or `build.gradle.kts` file.
 Omit `FILE` when supplying `--dependencies`.
 
+#### Gradle-only options
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--module` | | _(none)_ | Gradle module name. When supplied, the dependency task becomes `<module>:dependencies`. Can only be used with `--project`. |
+
 ### maven
 
 ```
@@ -60,6 +66,7 @@ Omit `FILE` when supplying `--dependencies`.
 | `--project` | `-p` | | Root directory of the project to analyse. When supplied, the dependency tree is generated automatically and `FILE` / `--dependencies` must not be used. |
 | `--java-home` | | _(system `JAVA_HOME`)_ | Directory to use as `JAVA_HOME`. Can only be used with `--project`. |
 | `--use-wrapper` | | `false` | Use the project wrapper script (`gradlew`/`mvnw`) instead of the system build tool. Can only be used with `--project`. |
+| `--wrapper` | | _(none)_ | Custom wrapper script name to use instead of the default (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven). Can only be used with `--use-wrapper`. |
 | `--dependencies` | `-d` | | Path to a pre-resolved dependency tree text file (see below). When supplied, parsing and transitive resolution are skipped. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
 | `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
@@ -83,12 +90,20 @@ When a Gradle or Maven project is available locally, pass its root directory to 
 # Gradle project using the system gradle
 jda gradle --project /path/to/my-project
 
+# Gradle multi-module project, analyse the :api module
+jda gradle --project /path/to/my-project --module api
+
 # Maven project using the project wrapper, with a custom JAVA_HOME
 jda maven --project /path/to/my-project --use-wrapper --java-home /usr/lib/jvm/java-21
+
+# Gradle project using a custom wrapper script name
+jda gradle --project /path/to/my-project --use-wrapper --wrapper gradlew-local
 ```
 
 - `--java-home` overrides the `JAVA_HOME` environment variable for the invocation. If neither is set, the command fails with a clear error.
 - `--use-wrapper` invokes `gradlew`/`gradlew.bat` (Gradle) or `mvnw`/`mvnw.cmd` (Maven) from the project root. A `UsageError` is raised when the wrapper script is absent.
+- `--wrapper` overrides the default wrapper script name used by `--use-wrapper`. Can only be used with `--use-wrapper`.
+- `--module` (Gradle only) specifies a sub-module; the dependency task becomes `<module>:dependencies`. Can only be used with `--project`.
 - `--project` is mutually exclusive with both `FILE` and `--dependencies`.
 
 ### Pre-resolved dependency trees (`--dependencies`)
@@ -142,6 +157,12 @@ Analyse a Maven project directly with a custom JAVA_HOME:
 
 ```bash
 jda maven --project /path/to/my-maven-project --java-home /usr/lib/jvm/java-21
+```
+
+Analyse a specific Gradle module using a custom wrapper script:
+
+```bash
+jda gradle --project /path/to/my-gradle-project --module api --use-wrapper --wrapper gradlew-local
 ```
 
 ## Configuration

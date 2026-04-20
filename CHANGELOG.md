@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 - 2026-04-19
+
+### Added
+- `--wrapper` option for both `gradle` and `maven` subcommands: specifies a custom wrapper script name to use instead of the default (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven); can only be used with `--use-wrapper`.
+- `--module` option for the `gradle` subcommand: specifies a Gradle module name so that the dependency task becomes `<module>:dependencies`; can only be used with `--project`.
+
 ## 1.3.0 - 2026-04-19
 
 ### Added
