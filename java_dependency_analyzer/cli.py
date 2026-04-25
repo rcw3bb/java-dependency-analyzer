@@ -7,7 +7,6 @@ Command-line interface entry point for the Java Dependency Analyzer.
 :since: 1.0.0
 """
 
-import json
 import os
 import subprocess
 import sys
@@ -30,9 +29,9 @@ from .parsers.gradle_dep_tree_parser import GradleDepTreeParser
 from .parsers.gradle_parser import GradleParser
 from .parsers.maven_dep_tree_parser import MavenDepTreeParser
 from .parsers.maven_parser import MavenParser
+from .parsers.sbom_parser import SbomParser
 from .reporters.html_reporter import HtmlReporter
 from .reporters.json_reporter import JsonReporter
-from .reporters.sbom_reporter import SbomReporter
 from .resolvers.transitive import TransitiveResolver
 from .scanners.ghsa_scanner import GhsaScanner
 from .scanners.osv_scanner import OsvScanner
@@ -348,7 +347,15 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
     "-s",
     type=click.Choice(["spdx", "cyclonedx", "swid"], case_sensitive=False),
     required=True,
-    help="SBOM standard to generate (spdx, cyclonedx, or swid).",
+    help="SBOM standard of the input file (spdx, cyclonedx, or swid).",
+)
+@click.option(
+    "--output-format",
+    "-f",
+    type=click.Choice(["json", "html", "all"], case_sensitive=False),
+    default="all",
+    show_default=True,
+    help="Output format for the vulnerability report.",
 )
 @click.option(
     "--output-dir",
@@ -356,18 +363,54 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
     default="./reports",
     show_default=True,
     type=click.Path(file_okay=False),
-    help="Directory to write the SBOM file into.",
+    help="Directory to write the report file(s) into.",
+)
+@click.option(
+    "--no-transitive",
+    is_flag=True,
+    default=False,
+    help="Skip transitive dependency resolution.",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Enable verbose progress output.",
+)
+@click.option(
+    "--rebuild-cache",
+    is_flag=True,
+    default=False,
+    help="Delete the vulnerability cache database before scanning.",
+)
+@click.option(
+    "--cache-ttl",
+    default=7,
+    show_default=True,
+    type=int,
+    help="Cache TTL in days. Set to 0 to disable caching.",
 )
 @click.argument(
     "file",
     required=True,
     type=click.Path(exists=True, dir_okay=False, readable=True),
 )
-def sbom(standard: str, output_dir: str, file: str) -> None:
+def sbom(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    standard: str,
+    output_format: str,
+    output_dir: str,
+    no_transitive: bool,
+    verbose: bool,
+    rebuild_cache: bool,
+    cache_ttl: int,
+    file: str,
+) -> None:
     """
-    Generate an SBOM (Software Bill of Materials) from a JSON scan report.
+    Scan an SBOM (Software Bill of Materials) file for known dependency vulnerabilities.
 
-    FILE is the path to a JSON scan report produced by the gradle or maven subcommand.
+    FILE is the path to an SBOM JSON file whose format matches --standard.
+    Supported standards: spdx (SPDX 2.3), cyclonedx (CycloneDX 1.6), swid (ISO/IEC 19770-2).
 
     :author: Ron Webb
     :since: 1.4.0
@@ -378,18 +421,28 @@ def sbom(standard: str, output_dir: str, file: str) -> None:
             f"Unsupported file: {file_path.name}. FILE must be a JSON file."
         )
 
-    _logger.info("Generating SBOM (%s) from %s", standard, file_path)
+    if verbose:
+        click.echo(f"Parsing {file_path.name} as {standard.upper()} SBOM...")
 
-    with open(file_path, encoding="utf-8") as file_handle:
-        scan_data = json.load(file_handle)
+    cache = _init_cache(rebuild_cache, cache_ttl, verbose)
 
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-    stem = file_path.stem
-    output_path = str(Path(output_dir) / f"{stem}-sbom-{standard.lower()}.json")
+    try:
+        parsed_deps = SbomParser(standard).parse(str(file_path))
+        found = _run_analysis(
+            parsed_deps,
+            source_file=str(file_path),
+            output_format=output_format,
+            output_dir=output_dir,
+            no_transitive=no_transitive,
+            verbose=verbose,
+            cache=cache,
+        )
+    finally:
+        if cache is not None:
+            cache.close()
 
-    SbomReporter().report(scan_data, standard, output_path)
-
-    click.echo(f"\nSBOM generated: {output_path}")
+    if found:
+        sys.exit(EXIT_VULNERABILITIES_FOUND)
 
 
 # ---------------------------------------------------------------------------
