@@ -7,6 +7,7 @@ Command-line interface entry point for the Java Dependency Analyzer.
 :since: 1.0.0
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -371,8 +372,6 @@ def sbom(standard: str, output_dir: str, file: str) -> None:
     :author: Ron Webb
     :since: 1.4.0
     """
-    import json as _json  # pylint: disable=import-outside-toplevel
-
     file_path = Path(file).resolve()
     if file_path.suffix.lower() != ".json":
         raise click.UsageError(
@@ -382,7 +381,7 @@ def sbom(standard: str, output_dir: str, file: str) -> None:
     _logger.info("Generating SBOM (%s) from %s", standard, file_path)
 
     with open(file_path, encoding="utf-8") as file_handle:
-        scan_data = _json.load(file_handle)
+        scan_data = json.load(file_handle)
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     stem = file_path.stem

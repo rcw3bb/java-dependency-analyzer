@@ -9,6 +9,7 @@ in SPDX 2.3, CycloneDX 1.6, or SWID (ISO/IEC 19770-2) format.
 """
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -186,8 +187,6 @@ class SbomReporter:
         :author: Ron Webb
         :since: 1.4.0
         """
-        import re  # pylint: disable=import-outside-toplevel
-
         raw = (
             f"{dep.get('group_id', '')}-"
             f"{dep.get('artifact_id', '')}-"
