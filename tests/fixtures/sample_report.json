@@ -1,0 +1,31 @@
+{
+  "source_file": "sample_pom.xml",
+  "scanned_at": "2024-01-01T00:00:00",
+  "project_dir": null,
+  "summary": {
+    "total_dependencies": 2,
+    "total_vulnerabilities": 0,
+    "vulnerable_dependency_count": 0
+  },
+  "dependencies": [
+    {
+      "group_id": "org.springframework",
+      "artifact_id": "spring-core",
+      "version": "5.3.20",
+      "scope": "compile",
+      "depth": 0,
+      "transitive_dependencies": [
+        {
+          "group_id": "commons-logging",
+          "artifact_id": "commons-logging",
+          "version": "1.2",
+          "scope": "compile",
+          "depth": 1,
+          "transitive_dependencies": [],
+          "vulnerabilities": []
+        }
+      ],
+      "vulnerabilities": []
+    }
+  ]
+}

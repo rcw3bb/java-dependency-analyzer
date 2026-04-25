@@ -31,6 +31,7 @@ from .parsers.maven_dep_tree_parser import MavenDepTreeParser
 from .parsers.maven_parser import MavenParser
 from .reporters.html_reporter import HtmlReporter
 from .reporters.json_reporter import JsonReporter
+from .reporters.sbom_reporter import SbomReporter
 from .resolvers.transitive import TransitiveResolver
 from .scanners.ghsa_scanner import GhsaScanner
 from .scanners.osv_scanner import OsvScanner
@@ -333,6 +334,63 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
 
     if found:
         sys.exit(EXIT_VULNERABILITIES_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# sbom subcommand
+# ---------------------------------------------------------------------------
+
+
+@main.command()
+@click.option(
+    "--standard",
+    "-s",
+    type=click.Choice(["spdx", "cyclonedx", "swid"], case_sensitive=False),
+    required=True,
+    help="SBOM standard to generate (spdx, cyclonedx, or swid).",
+)
+@click.option(
+    "--output-dir",
+    "-o",
+    default="./reports",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Directory to write the SBOM file into.",
+)
+@click.argument(
+    "file",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+def sbom(standard: str, output_dir: str, file: str) -> None:
+    """
+    Generate an SBOM (Software Bill of Materials) from a JSON scan report.
+
+    FILE is the path to a JSON scan report produced by the gradle or maven subcommand.
+
+    :author: Ron Webb
+    :since: 1.4.0
+    """
+    import json as _json  # pylint: disable=import-outside-toplevel
+
+    file_path = Path(file).resolve()
+    if file_path.suffix.lower() != ".json":
+        raise click.UsageError(
+            f"Unsupported file: {file_path.name}. FILE must be a JSON file."
+        )
+
+    _logger.info("Generating SBOM (%s) from %s", standard, file_path)
+
+    with open(file_path, encoding="utf-8") as file_handle:
+        scan_data = _json.load(file_handle)
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    stem = file_path.stem
+    output_path = str(Path(output_dir) / f"{stem}-sbom-{standard.lower()}.json")
+
+    SbomReporter().report(scan_data, standard, output_path)
+
+    click.echo(f"\nSBOM generated: {output_path}")
 
 
 # ---------------------------------------------------------------------------

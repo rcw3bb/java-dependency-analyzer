@@ -1245,3 +1245,152 @@ class TestModuleParam:
         assert result.exit_code == 0, result.output
         assert captured.get("cmd") is not None
         assert "mymod:dependencies" in " ".join(captured["cmd"])
+
+
+class TestSbomSubcommand:
+    """Tests for the ``sbom`` subcommand."""
+
+    def test_sbom_spdx_creates_file(self, tmp_path):
+        """sbom subcommand with --standard spdx should create a JSON SBOM file."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-dir",
+                str(tmp_path),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_report-sbom-spdx.json").exists()
+
+    def test_sbom_cyclonedx_creates_file(self, tmp_path):
+        """sbom subcommand with --standard cyclonedx should create a CycloneDX SBOM file."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "cyclonedx",
+                "--output-dir",
+                str(tmp_path),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_report-sbom-cyclonedx.json").exists()
+
+    def test_sbom_swid_creates_file(self, tmp_path):
+        """sbom subcommand with --standard swid should create a SWID SBOM file."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "swid",
+                "--output-dir",
+                str(tmp_path),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_report-sbom-swid.json").exists()
+
+    def test_sbom_output_message(self, tmp_path):
+        """sbom subcommand should print the path of the generated SBOM file."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-dir",
+                str(tmp_path),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "SBOM generated" in result.output
+
+    def test_sbom_non_json_file_exits_with_usage_error(self, tmp_path):
+        """sbom subcommand should reject a non-JSON file with a usage error."""
+        bad_file = tmp_path / "report.txt"
+        bad_file.write_text("not json", encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                str(bad_file),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_sbom_missing_standard_exits_with_error(self, tmp_path):
+        """sbom subcommand without --standard should exit with an error."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_sbom_invalid_standard_exits_with_error(self, tmp_path):
+        """sbom subcommand with an unsupported --standard value should exit with error."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "invalid",
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_sbom_short_option_s(self, tmp_path):
+        """sbom subcommand should accept -s as a short form of --standard."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "-s",
+                "cyclonedx",
+                "--output-dir",
+                str(tmp_path),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_report-sbom-cyclonedx.json").exists()
+
+    def test_sbom_creates_output_dir(self, tmp_path):
+        """sbom subcommand should create the output directory if it does not exist."""
+        output_dir = tmp_path / "new_reports"
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-dir",
+                str(output_dir),
+                str(_FIXTURES / "sample_report.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert output_dir.exists()
