@@ -345,9 +345,10 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
 @click.option(
     "--standard",
     "-s",
-    type=click.Choice(["spdx", "cyclonedx", "swid"], case_sensitive=False),
-    required=True,
-    help="SBOM standard of the input file (spdx, cyclonedx, or swid).",
+    type=click.Choice(["spdx", "cyclonedx"], case_sensitive=False),
+    default="cyclonedx",
+    show_default=True,
+    help="SBOM standard of the input file (spdx or cyclonedx).",
 )
 @click.option(
     "--output-format",
@@ -410,10 +411,10 @@ def sbom(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     Scan an SBOM (Software Bill of Materials) file for known dependency vulnerabilities.
 
     FILE is the path to an SBOM JSON file whose format matches --standard.
-    Supported standards: spdx (SPDX 2.3), cyclonedx (CycloneDX 1.6), swid (ISO/IEC 19770-2).
+    Supported standards: spdx (SPDX 2.3), cyclonedx (CycloneDX 1.6).
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.5.0
     """
     file_path = Path(file).resolve()
     if file_path.suffix.lower() != ".json":

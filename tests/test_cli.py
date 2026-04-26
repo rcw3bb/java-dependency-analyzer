@@ -1272,6 +1272,12 @@ class TestSbomSubcommand:
             is_reusable=True,
             is_optional=True,
         )
+        httpx_mock.add_response(
+            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            text="<project/>",
+            is_reusable=True,
+            is_optional=True,
+        )
 
     def test_sbom_spdx_creates_json_report(self, httpx_mock: HTTPXMock, tmp_path):
         """sbom subcommand with --standard spdx should create a JSON vulnerability report."""
@@ -1316,28 +1322,6 @@ class TestSbomSubcommand:
         )
         assert result.exit_code == 0, result.output
         assert (tmp_path / "sample_sbom_cyclonedx-report.json").exists()
-
-    def test_sbom_swid_creates_json_report(self, httpx_mock: HTTPXMock, tmp_path):
-        """sbom subcommand with --standard swid should create a JSON vulnerability report."""
-        self._mock_all_http(httpx_mock)
-        runner = CliRunner()
-        result = runner.invoke(
-            main,
-            [
-                "sbom",
-                "--standard",
-                "swid",
-                "--output-format",
-                "json",
-                "--output-dir",
-                str(tmp_path),
-                "--cache-ttl",
-                "0",
-                str(_FIXTURES / "sample_sbom_swid.json"),
-            ],
-        )
-        assert result.exit_code == 0, result.output
-        assert (tmp_path / "sample_sbom_swid-report.json").exists()
 
     def test_sbom_scan_complete_message(self, httpx_mock: HTTPXMock, tmp_path):
         """sbom subcommand should print a scan complete summary."""
@@ -1393,6 +1377,18 @@ class TestSbomSubcommand:
             json=_GHSA_VULN,
             is_reusable=True,
         )
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            text="<project/>",
+            is_reusable=True,
+            is_optional=True,
+        )
         runner = CliRunner()
         result = runner.invoke(
             main,
@@ -1427,17 +1423,25 @@ class TestSbomSubcommand:
         )
         assert result.exit_code != 0
 
-    def test_sbom_missing_standard_exits_with_error(self):
-        """sbom subcommand without --standard should exit with an error."""
+    def test_sbom_default_standard_is_cyclonedx(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand without --standard should default to cyclonedx."""
+        self._mock_all_http(httpx_mock)
         runner = CliRunner()
         result = runner.invoke(
             main,
             [
                 "sbom",
-                str(_FIXTURES / "sample_sbom_spdx.json"),
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_cyclonedx.json"),
             ],
         )
-        assert result.exit_code != 0
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_sbom_cyclonedx-report.json").exists()
 
     def test_sbom_invalid_standard_exits_with_error(self):
         """sbom subcommand with an unsupported --standard value should exit with error."""

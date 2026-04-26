@@ -4,7 +4,7 @@ test_sbom_parser module.
 Tests for the SbomParser class.
 
 :author: Ron Webb
-:since: 1.4.0
+:since: 1.5.0
 """
 
 import json
@@ -15,7 +15,7 @@ import pytest
 from java_dependency_analyzer.parsers.sbom_parser import SbomParser
 
 __author__ = "Ron Webb"
-__since__ = "1.4.0"
+__since__ = "1.5.0"
 
 _FIXTURES = Path(__file__).parent.parent / "fixtures"
 
@@ -182,76 +182,6 @@ class TestSbomParserCycloneDx:
         path.write_text(json.dumps(sbom), encoding="utf-8")
         result = self.parser.parse(str(path))
         assert result == []
-
-
-class TestSbomParserSwid:
-    """Tests for SWID (ISO/IEC 19770-2) parsing via SbomParser."""
-
-    def setup_method(self):
-        """Create a fresh SWID parser instance per test."""
-        self.parser = SbomParser("swid")
-
-    def test_returns_list(self):
-        """parse() should return a list."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        assert isinstance(result, list)
-
-    def test_parses_two_valid_items(self):
-        """Fixture has 3 items; 1 has bad tagId format and is skipped."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        assert len(result) == 2
-
-    def test_group_id(self):
-        """Group ID should be the first segment of tagId."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        groups = {d.group_id for d in result}
-        assert "org.springframework" in groups
-
-    def test_artifact_id(self):
-        """Artifact ID should be the second segment of tagId."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        artifacts = {d.artifact_id for d in result}
-        assert "spring-core" in artifacts
-
-    def test_version(self):
-        """Version should be the third segment of tagId."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        spring = next((d for d in result if d.artifact_id == "spring-core"), None)
-        assert spring is not None
-        assert spring.version == "5.3.20"
-
-    def test_scope_defaults_to_compile(self):
-        """Scope should default to 'compile' for SWID items."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        assert all(d.scope == "compile" for d in result)
-
-    def test_skips_malformed_tag_id(self):
-        """Items whose tagId is not in groupId:artifactId:version format should be skipped."""
-        result = self.parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        names = {d.artifact_id for d in result}
-        assert "bad-format-package" not in names
-
-    def test_empty_payload(self, tmp_path):
-        """SWID document with empty payload.software should return an empty list."""
-        sbom = {"payload": {"software": []}}
-        path = tmp_path / "empty.json"
-        path.write_text(json.dumps(sbom), encoding="utf-8")
-        result = self.parser.parse(str(path))
-        assert result == []
-
-    def test_missing_payload(self, tmp_path):
-        """SWID document without a payload key should return an empty list."""
-        sbom = {"tagId": "some.tag", "name": "test"}
-        path = tmp_path / "nopayload.json"
-        path.write_text(json.dumps(sbom), encoding="utf-8")
-        result = self.parser.parse(str(path))
-        assert result == []
-
-    def test_case_insensitive_standard(self):
-        """SbomParser should accept 'SWID' in any case."""
-        parser = SbomParser("SWID")
-        result = parser.parse(str(_FIXTURES / "sample_sbom_swid.json"))
-        assert len(result) == 2
 
 
 class TestSbomParserUnsupportedStandard:

@@ -1,11 +1,11 @@
 """
 sbom_parser module.
 
-Parses SBOM (Software Bill of Materials) JSON files in SPDX 2.3, CycloneDX 1.6,
-or SWID (ISO/IEC 19770-2) format and extracts the contained Java dependencies.
+Parses SBOM (Software Bill of Materials) JSON files in SPDX 2.3 or CycloneDX 1.6
+format and extracts the contained Java dependencies.
 
 :author: Ron Webb
-:since: 1.4.0
+:since: 1.5.0
 """
 
 import json
@@ -17,14 +17,12 @@ from ..util.logger import setup_logger
 from .base import DependencyParser
 
 __author__ = "Ron Webb"
-__since__ = "1.4.0"
+__since__ = "1.5.0"
 
 _logger = setup_logger(__name__)
 
 # Matches a Maven package URL: pkg:maven/{groupId}/{artifactId}@{version}
-_PURL_MAVEN_RE = re.compile(
-    r"^pkg:maven/([^/]+)/([^@]+)@(.+?)(?:[?#].*)?$"
-)
+_PURL_MAVEN_RE = re.compile(r"^pkg:maven/([^/]+)/([^@]+)@(.+?)(?:[?#].*)?$")
 
 # Maps CycloneDX scope values to Java dependency scope names
 _CYCLONEDX_SCOPE_MAP: dict[str, str] = {
@@ -41,7 +39,7 @@ def _parse_maven_purl(purl: str) -> tuple[str, str, str] | None:
     Returns *None* when *purl* is not a valid Maven purl.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.5.0
     """
     match = _PURL_MAVEN_RE.match(purl.strip())
     if not match:
@@ -51,14 +49,14 @@ def _parse_maven_purl(purl: str) -> tuple[str, str, str] | None:
 
 class SbomParser(DependencyParser):
     """
-    Parses an SBOM JSON file in SPDX 2.3, CycloneDX 1.6, or SWID format.
+    Parses an SBOM JSON file in SPDX 2.3 or CycloneDX 1.6 format.
 
     All components found in the file are returned as a flat list of
     :class:`~java_dependency_analyzer.models.dependency.Dependency` objects.
     Components without enough Maven coordinate information are silently skipped.
 
     :author: Ron Webb
-    :since: 1.4.0
+    :since: 1.5.0
     """
 
     def __init__(self, standard: str) -> None:
@@ -66,7 +64,7 @@ class SbomParser(DependencyParser):
         Initialise the parser for the given SBOM *standard*.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         self._standard = standard.lower()
 
@@ -75,7 +73,7 @@ class SbomParser(DependencyParser):
         Parse *file_path* and return a flat list of dependencies.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         _logger.info("Parsing %s SBOM from '%s'", self._standard, file_path)
         try:
@@ -88,7 +86,6 @@ class SbomParser(DependencyParser):
         parsers = {
             "spdx": self._parse_spdx,
             "cyclonedx": self._parse_cyclonedx,
-            "swid": self._parse_swid,
         }
         parser_fn = parsers.get(self._standard)
         if parser_fn is None:
@@ -109,7 +106,7 @@ class SbomParser(DependencyParser):
         Packages without a valid Maven purl are skipped.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         deps: list[Dependency] = []
         for pkg in data.get("packages", []):
@@ -127,7 +124,7 @@ class SbomParser(DependencyParser):
         Returns *None* when no Maven purl can be found.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         for ref in pkg.get("externalRefs", []):
             if ref.get("referenceType") != "purl":
@@ -156,7 +153,7 @@ class SbomParser(DependencyParser):
         Extract dependencies from a CycloneDX 1.6 JSON document.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         deps: list[Dependency] = []
         for component in data.get("components", []):
@@ -174,7 +171,7 @@ class SbomParser(DependencyParser):
         Returns *None* when required coordinate fields are missing.
 
         :author: Ron Webb
-        :since: 1.4.0
+        :since: 1.5.0
         """
         group_id = component.get("group", "").strip()
         artifact_id = component.get("name", "").strip()
@@ -198,52 +195,4 @@ class SbomParser(DependencyParser):
             artifact_id=artifact_id,
             version=version,
             scope=scope,
-        )
-
-    # ------------------------------------------------------------------
-    # SWID (ISO/IEC 19770-2)
-    # ------------------------------------------------------------------
-
-    def _parse_swid(self, data: dict) -> list[Dependency]:
-        """
-        Extract dependencies from a SWID (ISO/IEC 19770-2) JSON document.
-
-        Each software item's ``tagId`` must be in the form
-        ``groupId:artifactId:version``.  Items that do not conform are skipped.
-
-        :author: Ron Webb
-        :since: 1.4.0
-        """
-        deps: list[Dependency] = []
-        payload = data.get("payload", {})
-        for item in payload.get("software", []):
-            dep = self._swid_item_to_dep(item)
-            if dep is not None:
-                deps.append(dep)
-        _logger.info("Parsed %d dependencies from SWID SBOM", len(deps))
-        return deps
-
-    @staticmethod
-    def _swid_item_to_dep(item: dict) -> Dependency | None:
-        """
-        Convert a single SWID software item to a :class:`Dependency`.
-
-        The ``tagId`` field must be ``groupId:artifactId:version``.
-        Returns *None* when the format does not match.
-
-        :author: Ron Webb
-        :since: 1.4.0
-        """
-        tag_id = item.get("tagId", "").strip()
-        parts = tag_id.split(":")
-        if len(parts) != 3:
-            return None
-        group_id, artifact_id, version = parts
-        if not (group_id and artifact_id and version):
-            return None
-        return Dependency(
-            group_id=group_id,
-            artifact_id=artifact_id,
-            version=version,
-            scope="compile",
         )
