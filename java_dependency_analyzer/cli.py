@@ -29,6 +29,7 @@ from .parsers.gradle_dep_tree_parser import GradleDepTreeParser
 from .parsers.gradle_parser import GradleParser
 from .parsers.maven_dep_tree_parser import MavenDepTreeParser
 from .parsers.maven_parser import MavenParser
+from .parsers.sbom_parser import SbomParser
 from .reporters.html_reporter import HtmlReporter
 from .reporters.json_reporter import JsonReporter
 from .resolvers.transitive import TransitiveResolver
@@ -145,6 +146,11 @@ def _common_options(func):
 
 
 @click.group()
+@click.version_option(
+    version=__version__,
+    prog_name="Java Dependency Analyzer",
+    message="%(prog)s %(version)s",
+)
 def main() -> None:
     """Java Dependency Analyzer -- inspect Java dependency trees for known vulnerabilities."""
     _logger.info("Java Dependency Analyzer v%s", __version__)
@@ -326,6 +332,116 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
             dep_tree_parser_cls=MavenDepTreeParser,
             file_parser_cls=MavenParser,
             build_cmd_fn=partial(_build_maven_dep_cmd, wrapper=wrapper),
+        )
+    finally:
+        if cache is not None:
+            cache.close()
+
+    if found:
+        sys.exit(EXIT_VULNERABILITIES_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# sbom subcommand
+# ---------------------------------------------------------------------------
+
+
+@main.command()
+@click.option(
+    "--standard",
+    "-s",
+    type=click.Choice(["spdx", "cyclonedx"], case_sensitive=False),
+    default="cyclonedx",
+    show_default=True,
+    help="SBOM standard of the input file (spdx or cyclonedx).",
+)
+@click.option(
+    "--output-format",
+    "-f",
+    type=click.Choice(["json", "html", "all"], case_sensitive=False),
+    default="all",
+    show_default=True,
+    help="Output format for the vulnerability report.",
+)
+@click.option(
+    "--output-dir",
+    "-o",
+    default="./reports",
+    show_default=True,
+    type=click.Path(file_okay=False),
+    help="Directory to write the report file(s) into.",
+)
+@click.option(
+    "--no-transitive",
+    is_flag=True,
+    default=False,
+    help="Skip transitive dependency resolution.",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    help="Enable verbose progress output.",
+)
+@click.option(
+    "--rebuild-cache",
+    is_flag=True,
+    default=False,
+    help="Delete the vulnerability cache database before scanning.",
+)
+@click.option(
+    "--cache-ttl",
+    default=7,
+    show_default=True,
+    type=int,
+    help="Cache TTL in days. Set to 0 to disable caching.",
+)
+@click.argument(
+    "file",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+def sbom(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    standard: str,
+    output_format: str,
+    output_dir: str,
+    no_transitive: bool,
+    verbose: bool,
+    rebuild_cache: bool,
+    cache_ttl: int,
+    file: str,
+) -> None:
+    """
+    Scan an SBOM (Software Bill of Materials) file for known dependency vulnerabilities.
+
+    FILE is the path to an SBOM JSON file whose format matches --standard.
+    Supported standards: spdx (SPDX 2.3), cyclonedx (CycloneDX 1.6).
+
+    :author: Ron Webb
+    :since: 1.5.0
+    """
+    file_path = Path(file).resolve()
+    if file_path.suffix.lower() != ".json":
+        raise click.UsageError(
+            f"Unsupported file: {file_path.name}. FILE must be a JSON file."
+        )
+
+    if verbose:
+        click.echo(f"Parsing {file_path.name} as {standard.upper()} SBOM...")
+
+    cache = _init_cache(rebuild_cache, cache_ttl, verbose)
+
+    try:
+        parsed_deps = SbomParser(standard).parse(str(file_path))
+        found = _run_analysis(
+            parsed_deps,
+            source_file=str(file_path),
+            output_format=output_format,
+            output_dir=output_dir,
+            no_transitive=no_transitive,
+            verbose=verbose,
+            cache=cache,
         )
     finally:
         if cache is not None:

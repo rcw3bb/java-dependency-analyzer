@@ -1,0 +1,35 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "serialNumber": "urn:uuid:12345678-1234-1234-1234-123456789012",
+  "metadata": {
+    "timestamp": "2024-01-01T00:00:00Z",
+    "tools": [{"name": "java-dependency-analyzer"}]
+  },
+  "components": [
+    {
+      "type": "library",
+      "group": "org.springframework",
+      "name": "spring-core",
+      "version": "5.3.20",
+      "purl": "pkg:maven/org.springframework/spring-core@5.3.20",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "group": "commons-logging",
+      "name": "commons-logging",
+      "version": "1.2",
+      "purl": "pkg:maven/commons-logging/commons-logging@1.2",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "name": "optional-lib",
+      "version": "2.0",
+      "purl": "pkg:maven/org.example/optional-lib@2.0",
+      "scope": "optional"
+    }
+  ]
+}

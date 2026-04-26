@@ -1,0 +1,32 @@
+{
+  "tagId": "java-dependency-analyzer.sample.12345678-1234-1234-1234-123456789012",
+  "name": "sample",
+  "version": "2024-01-01T00:00:00",
+  "tagVersion": 1,
+  "entity": [{"name": "java-dependency-analyzer", "role": "tagCreator"}],
+  "payload": {
+    "software": [
+      {
+        "tagId": "org.springframework:spring-core:5.3.20",
+        "name": "spring-core",
+        "version": "5.3.20",
+        "tagVersion": 1,
+        "entity": [{"name": "org.springframework", "role": "softwareCreator"}]
+      },
+      {
+        "tagId": "commons-logging:commons-logging:1.2",
+        "name": "commons-logging",
+        "version": "1.2",
+        "tagVersion": 1,
+        "entity": [{"name": "commons-logging", "role": "softwareCreator"}]
+      },
+      {
+        "tagId": "bad-format",
+        "name": "bad-format-package",
+        "version": "1.0",
+        "tagVersion": 1,
+        "entity": []
+      }
+    ]
+  }
+}

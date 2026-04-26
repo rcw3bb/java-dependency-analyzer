@@ -1245,3 +1245,258 @@ class TestModuleParam:
         assert result.exit_code == 0, result.output
         assert captured.get("cmd") is not None
         assert "mymod:dependencies" in " ".join(captured["cmd"])
+
+
+class TestSbomSubcommand:
+    """Tests for the ``sbom`` subcommand."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def _mock_all_http(self, httpx_mock: HTTPXMock) -> None:
+        """Register catch-all HTTP mocks so no real network calls are made."""
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            text="<project/>",
+            is_reusable=True,
+            is_optional=True,
+        )
+
+    def test_sbom_spdx_creates_json_report(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand with --standard spdx should create a JSON vulnerability report."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_sbom_spdx-report.json").exists()
+
+    def test_sbom_cyclonedx_creates_json_report(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand with --standard cyclonedx should create a JSON vulnerability report."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "cyclonedx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_cyclonedx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_sbom_cyclonedx-report.json").exists()
+
+    def test_sbom_scan_complete_message(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand should print a scan complete summary."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Scan complete" in result.output
+
+    def test_sbom_verbose_flag(self, httpx_mock: HTTPXMock, tmp_path):
+        """--verbose flag should produce additional output."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                "--verbose",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "Parsing" in result.output
+
+    def test_sbom_exit_code_10_when_vulnerabilities_found(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
+        """sbom subcommand should exit with code 10 when vulnerabilities are found."""
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_VULN,
+            is_reusable=True,
+        )
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            text="<project/>",
+            is_reusable=True,
+            is_optional=True,
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code == 10, result.output
+
+    def test_sbom_non_json_file_exits_with_usage_error(self, tmp_path):
+        """sbom subcommand should reject a non-JSON file with a usage error."""
+        bad_file = tmp_path / "report.txt"
+        bad_file.write_text("not json", encoding="utf-8")
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                str(bad_file),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_sbom_default_standard_is_cyclonedx(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand without --standard should default to cyclonedx."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_cyclonedx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "sample_sbom_cyclonedx-report.json").exists()
+
+    def test_sbom_invalid_standard_exits_with_error(self):
+        """sbom subcommand with an unsupported --standard value should exit with error."""
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "invalid",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_sbom_short_option_s(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand should accept -s as a short form of --standard."""
+        self._mock_all_http(httpx_mock)
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "-s",
+                "cyclonedx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_cyclonedx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+    def test_sbom_creates_output_dir(self, httpx_mock: HTTPXMock, tmp_path):
+        """sbom subcommand should create the output directory if it does not exist."""
+        self._mock_all_http(httpx_mock)
+        output_dir = tmp_path / "new_reports"
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            [
+                "sbom",
+                "--standard",
+                "spdx",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(output_dir),
+                "--cache-ttl",
+                "0",
+                str(_FIXTURES / "sample_sbom_spdx.json"),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert output_dir.exists()

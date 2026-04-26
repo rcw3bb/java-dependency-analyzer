@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.4.0
+# Java Dependency Analyzer 1.5.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -30,10 +30,16 @@ poetry install
 ## Usage
 
 ```
-jda <COMMAND> [OPTIONS] [FILE]
+jda [--version] <COMMAND> [OPTIONS] [FILE]
 ```
 
-`COMMAND` is one of `gradle` or `maven`.
+`COMMAND` is one of `gradle`, `maven`, or `sbom`.
+
+### Global options
+
+| Option | Description |
+|---|---|
+| `--version` | Print the installed version and exit. |
 
 ### gradle
 
@@ -59,7 +65,21 @@ jda maven [OPTIONS] [FILE]
 `FILE` is the path to a `pom.xml` file.
 Omit `FILE` when supplying `--dependencies`.
 
-### Options (both subcommands)
+### sbom
+
+```
+jda sbom [OPTIONS] FILE
+```
+
+`FILE` is the path to an SBOM JSON file. Supported standards: SPDX 2.3 and CycloneDX 1.6.
+
+#### sbom-only options
+
+| Option | Short | Required | Default | Description |
+|---|---|---|---|---|
+| `--standard` | `-s` | No | `cyclonedx` | SBOM standard of the input file: `spdx` or `cyclonedx` (case-insensitive). |
+
+### Options (gradle / maven subcommands)
 
 | Option | Short | Default | Description |
 |---|---|---|---|
@@ -68,6 +88,18 @@ Omit `FILE` when supplying `--dependencies`.
 | `--use-wrapper` | | `false` | Use the project wrapper script (`gradlew`/`mvnw`) instead of the system build tool. Can only be used with `--project`. |
 | `--wrapper` | | _(none)_ | Custom wrapper script name to use instead of the default (`gradlew`/`gradlew.bat` for Gradle, `mvnw`/`mvnw.cmd` for Maven). Can only be used with `--use-wrapper`. |
 | `--dependencies` | `-d` | | Path to a pre-resolved dependency tree text file (see below). When supplied, parsing and transitive resolution are skipped. |
+| `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
+| `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
+| `--no-transitive` | | `false` | Skip transitive dependency resolution; analyse direct dependencies only. |
+| `--verbose` | `-v` | `false` | Print progress messages to the console. |
+| `--rebuild-cache` | | `false` | Delete the vulnerability cache before scanning. |
+| `--cache-ttl` | | `7` | Cache TTL in days. Set to `0` to disable caching. |
+
+### Options (sbom subcommand)
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--standard` | `-s` | `cyclonedx` | SBOM standard of the input file: `spdx` or `cyclonedx`. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
 | `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
 | `--no-transitive` | | `false` | Skip transitive dependency resolution; analyse direct dependencies only. |
@@ -114,6 +146,58 @@ When a Gradle or Maven project already has a dependency tree available (e.g. fro
 - **Maven**: generate with `mvn dependency:tree -Dscope=runtime > maven.txt`
 
 The report will reflect the exact tree from the file, including all transitive dependencies.
+
+### Generating SBOM files
+
+Use one of the approaches below to produce an SBOM JSON file that `jda sbom` can consume.
+
+#### CycloneDX 1.6
+
+**Gradle** — add the [CycloneDX Gradle plugin](https://github.com/CycloneDX/cyclonedx-gradle-plugin) to `build.gradle`:
+
+```groovy
+plugins {
+    id 'org.cyclonedx.bom' version '3.2.4'
+}
+```
+
+Or for Kotlin DSL (`build.gradle.kts`):
+
+```kotlin
+plugins {
+    id("org.cyclonedx.bom") version "3.2.4"
+}
+```
+
+Then run:
+
+```bash
+gradle cyclonedxBom
+```
+
+Output: `build/reports/bom.json`
+
+**Maven** — run the [CycloneDX Maven plugin](https://github.com/CycloneDX/cyclonedx-maven-plugin) without modifying `pom.xml`:
+
+```bash
+mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+```
+
+Output: `target/bom.json`
+
+#### SPDX 2.3
+
+JDA expects a SPDX JSON document where each package entry in the `packages` array has an `externalRefs` entry with `referenceType: "purl"` and a `referenceLocator` in the form `pkg:maven/{groupId}/{artifactId}@{version}`.
+
+**Gradle and Maven** — use [syft](https://github.com/anchore/syft):
+
+```bash
+# Gradle project
+syft /path/to/gradle-project -o spdx-json=sbom.spdx.json
+
+# Maven project
+syft /path/to/maven-project -o spdx-json=sbom.spdx.json
+```
 
 ### Examples
 
@@ -165,6 +249,18 @@ Analyse a specific Gradle module using a custom wrapper script:
 jda gradle --project /path/to/my-gradle-project --module api --use-wrapper --wrapper gradlew-local
 ```
 
+Scan a CycloneDX SBOM file and produce both JSON and HTML reports:
+
+```bash
+jda sbom --standard cyclonedx bom.json
+```
+
+Scan an SPDX SBOM file and write an HTML report to a custom directory:
+
+```bash
+jda sbom --standard spdx sbom.spdx.json -f html -o reports/
+```
+
 ## Configuration
 
 | Environment Variable | Required | Default | Description |
@@ -213,6 +309,7 @@ graph TD
     Parser --> GradleParser
     Parser --> MavenDepTreeParser
     Parser --> GradleDepTreeParser
+    Parser --> SbomParser
     CLI --> Resolver["TransitiveResolver<br/>(Maven Central)"]
     CLI --> Scanner["VulnerabilityScanner (ABC)"]
     Scanner --> OsvScanner["OsvScanner<br/>(OSV.dev API)"]
@@ -226,6 +323,7 @@ graph TD
     GradleParser --> Dependency
     MavenDepTreeParser --> Dependency
     GradleDepTreeParser --> Dependency
+    SbomParser --> Dependency
     Resolver --> Dependency
     OsvScanner --> Dependency
     GhsaScanner --> Dependency
@@ -238,11 +336,12 @@ graph TD
 
 | Component | Location | Responsibility |
 |---|---|---|
-| CLI | `java_dependency_analyzer/cli.py` | Entry point (`gradle` / `maven` subcommands); orchestrates parsing, resolving, scanning, and reporting. |
+| CLI | `java_dependency_analyzer/cli.py` | Entry point (`gradle` / `maven` / `sbom` subcommands); orchestrates parsing, resolving, scanning, and reporting. |
 | `MavenParser` | `parsers/maven_parser.py` | Parses `pom.xml`, resolves `${property}` placeholders, filters by runtime scope. |
 | `GradleParser` | `parsers/gradle_parser.py` | Parses Groovy DSL (`build.gradle`) and Kotlin DSL (`build.gradle.kts`) files. |
 | `MavenDepTreeParser` | `parsers/maven_dep_tree_parser.py` | Parses `mvn dependency:tree` text output into a full dependency tree. |
 | `GradleDepTreeParser` | `parsers/gradle_dep_tree_parser.py` | Parses `gradle dependencies` text output into a full dependency tree. |
+| `SbomParser` | `parsers/sbom_parser.py` | Parses SBOM JSON files in SPDX 2.3 or CycloneDX 1.6 format; extracts Maven dependencies via package URLs (`pkg:maven/…`). |
 | `TransitiveResolver` | `resolvers/transitive.py` | Fetches transitive dependencies by downloading POM files from Maven Central. |
 | `OsvScanner` | `scanners/osv_scanner.py` | Queries the [OSV.dev](https://osv.dev/) batch API for known CVEs. |
 | `GhsaScanner` | `scanners/ghsa_scanner.py` | Queries the [GitHub Advisory Database](https://github.com/advisories) REST API for security advisories; automatically falls back to OSV when rate-limited (HTTP 403/429). |
