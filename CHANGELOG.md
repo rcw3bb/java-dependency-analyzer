@@ -2,6 +2,7 @@
 
 ## 1.5.0 - 2026-04-26
 ### Added
+- `--version` global option on the `jda` command: prints the installed version and exits.
 - `sbom` subcommand: scan an SBOM (Software Bill of Materials) JSON file for known dependency vulnerabilities; supports SPDX 2.3 and CycloneDX 1.6 standards via the `--standard` option (defaults to `cyclonedx`).
 - `SbomParser`: parses SBOM JSON files and extracts Maven dependencies using package URLs (`pkg:maven/…`); CycloneDX scope values are mapped to Java scope names.
 

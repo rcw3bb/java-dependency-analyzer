@@ -30,10 +30,16 @@ poetry install
 ## Usage
 
 ```
-jda <COMMAND> [OPTIONS] [FILE]
+jda [--version] <COMMAND> [OPTIONS] [FILE]
 ```
 
 `COMMAND` is one of `gradle`, `maven`, or `sbom`.
+
+### Global options
+
+| Option | Description |
+|---|---|
+| `--version` | Print the installed version and exit. |
 
 ### gradle
 

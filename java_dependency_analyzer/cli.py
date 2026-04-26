@@ -146,6 +146,11 @@ def _common_options(func):
 
 
 @click.group()
+@click.version_option(
+    version=__version__,
+    prog_name="Java Dependency Analyzer",
+    message="%(prog)s %(version)s",
+)
 def main() -> None:
     """Java Dependency Analyzer -- inspect Java dependency trees for known vulnerabilities."""
     _logger.info("Java Dependency Analyzer v%s", __version__)
