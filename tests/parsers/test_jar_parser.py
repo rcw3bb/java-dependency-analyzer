@@ -7,8 +7,7 @@ Tests for :class:`JarParser`.
 :since: 1.6.0
 """
 
-from pathlib import Path
-
+from pathlib import Path, PureWindowsPath
 from java_dependency_analyzer.models.dependency import Dependency
 from java_dependency_analyzer.parsers.jar_parser import JarParser
 
@@ -25,7 +24,7 @@ class _FakeResolver:
     def resolve(self, jar: str, base_dir: Path | None = None) -> Dependency | None:
         """Record the call and return a dependency named after the jar."""
         self.calls.append((jar, base_dir))
-        name = Path(jar).stem
+        name = PureWindowsPath(jar).stem
         if name.startswith("unknown"):
             return None
         artifact, _, version = name.rpartition("-")
