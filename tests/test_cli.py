@@ -11,6 +11,7 @@ import re
 from pathlib import Path
 from unittest.mock import patch
 
+import click
 import pytest
 from click.testing import CliRunner
 from pytest_httpx import HTTPXMock
@@ -1273,7 +1274,9 @@ class TestSbomSubcommand:
             is_optional=True,
         )
         httpx_mock.add_response(
-            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            url=re.compile(
+                r"https://maven-central\.storage-download\.googleapis\.com/maven2/"
+            ),
             text="<project/>",
             is_reusable=True,
             is_optional=True,
@@ -1384,7 +1387,9 @@ class TestSbomSubcommand:
             is_optional=True,
         )
         httpx_mock.add_response(
-            url=re.compile(r"https://repo1\.maven\.org/maven2/"),
+            url=re.compile(
+                r"https://maven-central\.storage-download\.googleapis\.com/maven2/"
+            ),
             text="<project/>",
             is_reusable=True,
             is_optional=True,
@@ -1500,3 +1505,227 @@ class TestSbomSubcommand:
         )
         assert result.exit_code == 0, result.output
         assert output_dir.exists()
+
+
+class TestJarSubcommand:
+    """Tests for the ``jar`` subcommand."""
+
+    _SEARCH = re.compile(r"https://central\.sonatype\.com/solrsearch/select\?")
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def _mock_http(self, httpx_mock: HTTPXMock, vulnerable: bool = False) -> None:
+        """Register mocks for the Maven search, Maven Central, OSV and GHSA endpoints."""
+        httpx_mock.add_response(
+            url=self._SEARCH,
+            json={
+                "response": {
+                    "docs": [
+                        {
+                            "g": "org.apache.logging.log4j",
+                            "a": "log4j-core",
+                            "v": "2.14.1",
+                        }
+                    ]
+                }
+            },
+            is_reusable=True,
+        )
+        httpx_mock.add_response(
+            url="https://api.osv.dev/v1/query",
+            json=_OSV_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(r"https://api\.github\.com/advisories"),
+            json=_GHSA_VULN if vulnerable else _GHSA_EMPTY,
+            is_reusable=True,
+            is_optional=True,
+        )
+        httpx_mock.add_response(
+            url=re.compile(
+                r"https://maven-central\.storage-download\.googleapis\.com/maven2/"
+            ),
+            text="<project/>",
+            is_reusable=True,
+            is_optional=True,
+        )
+
+    def _invoke(self, tmp_path, *args: str):
+        """Invoke the jar subcommand with common test options."""
+        return CliRunner().invoke(
+            main,
+            [
+                "jar",
+                "--output-format",
+                "json",
+                "--output-dir",
+                str(tmp_path / "out"),
+                "--cache-ttl",
+                "0",
+                *args,
+            ],
+        )
+
+    def test_jar_list_creates_report(self, httpx_mock: HTTPXMock, tmp_path):
+        """A list file should be scanned and produce a JSON report."""
+        self._mock_http(httpx_mock)
+        jar_list = tmp_path / "jars.txt"
+        jar_list.write_text("log4j-core-2.14.1.jar\n", encoding="utf-8")
+
+        result = self._invoke(tmp_path, str(jar_list))
+
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "out" / "jars-report.json").exists()
+        assert "1 dependencies" in result.output
+
+    def test_jar_option_scans_single_jar(self, httpx_mock: HTTPXMock, tmp_path):
+        """--jar should treat FILE as a single jar."""
+        self._mock_http(httpx_mock)
+
+        result = self._invoke(tmp_path, "--jar", "-v", "log4j-core-2.14.1.jar")
+
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "out" / "log4j-core-2.14.1-report.json").exists()
+
+    def test_jar_exit_code_10_when_vulnerabilities_found(
+        self, httpx_mock: HTTPXMock, tmp_path
+    ):
+        """Vulnerabilities in a jar should produce exit code 10."""
+        self._mock_http(httpx_mock, vulnerable=True)
+
+        result = self._invoke(
+            tmp_path, "--jar", "--no-transitive", "log4j-core-2.14.1.jar"
+        )
+
+        assert result.exit_code == 10, result.output
+
+    def test_jar_list_file_must_exist(self, tmp_path, caplog):
+        """A missing list file should be a usage error that is also logged."""
+        with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+            result = self._invoke(tmp_path, str(tmp_path / "missing.txt"))
+
+        assert result.exit_code == 2
+        assert "File not found" in result.output
+        assert "File not found" in caplog.text
+
+    def test_jar_option_requires_jar_extension(self, tmp_path):
+        """--jar with a non-jar FILE should be a usage error."""
+        result = self._invoke(tmp_path, "--jar", "library.zip")
+
+        assert result.exit_code == 2
+        assert ".jar" in result.output
+
+    def test_group_mapping_is_passed_to_resolver(self, tmp_path):
+        """--group-mapping should load the file and hand it to the resolver."""
+        mapping_file = tmp_path / "mapping.txt"
+        mapping_file.write_text("org.apache.logging.log4j:log4j-core\n", "utf-8")
+
+        with (
+            patch("java_dependency_analyzer.cli.JarCoordinateResolver") as resolver_cls,
+            patch("java_dependency_analyzer.cli.JarParser.parse", return_value=[]),
+        ):
+            result = self._invoke(
+                tmp_path,
+                "--jar",
+                "--group-mapping",
+                str(mapping_file),
+                "log4j-core-2.14.1.jar",
+            )
+
+        assert result.exit_code == 0, result.output
+        resolver_cls.assert_called_once_with(
+            group_mapping={"log4j-core": ["org.apache.logging.log4j"]}
+        )
+
+    def test_no_group_mapping_passes_none(self, tmp_path):
+        """Without --group-mapping the resolver should get no mapping."""
+        with (
+            patch("java_dependency_analyzer.cli.JarCoordinateResolver") as resolver_cls,
+            patch("java_dependency_analyzer.cli.JarParser.parse", return_value=[]),
+        ):
+            result = self._invoke(tmp_path, "--jar", "log4j-core-2.14.1.jar")
+
+        assert result.exit_code == 0, result.output
+        resolver_cls.assert_called_once_with(group_mapping=None)
+
+    def test_group_mapping_file_must_exist(self, tmp_path):
+        """A missing --group-mapping file should be a usage error."""
+        result = self._invoke(
+            tmp_path,
+            "--jar",
+            "--group-mapping",
+            str(tmp_path / "missing.txt"),
+            "log4j-core-2.14.1.jar",
+        )
+
+        assert result.exit_code == 2
+        assert "group-mapping" in result.output
+
+
+class TestErrorLogging:
+    """Every CLI error should be written to the log."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_db(self, tmp_path, monkeypatch):
+        """Redirect the cache database to a temporary directory for test isolation."""
+        monkeypatch.setattr(
+            "java_dependency_analyzer.cache.db.get_db_path",
+            lambda: tmp_path / "cache.db",
+        )
+
+    def test_group_option_error_is_logged(self, caplog):
+        """An invalid group-level option should be logged."""
+        with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+            result = CliRunner().invoke(main, ["--bogus"])
+
+        assert result.exit_code == 2
+        assert "No such option" in caplog.text
+
+    def test_unknown_command_is_logged(self, caplog):
+        """An unknown subcommand should be logged."""
+        with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+            result = CliRunner().invoke(main, ["bogus"])
+
+        assert result.exit_code == 2
+        assert "No such command" in caplog.text
+
+    def test_subcommand_parameter_error_is_logged(self, caplog):
+        """A missing subcommand argument should be logged."""
+        with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+            result = CliRunner().invoke(main, ["jar"])
+
+        assert result.exit_code == 2
+        assert "Missing argument" in caplog.text
+
+    def test_unexpected_exception_is_logged(self, caplog):
+        """An unexpected exception should be logged with its traceback."""
+        with patch(
+            "java_dependency_analyzer.cli.JarParser.parse",
+            side_effect=RuntimeError("kaboom"),
+        ):
+            with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+                result = CliRunner().invoke(main, ["jar", "--jar", "a-1.0.jar"])
+
+        assert isinstance(result.exception, RuntimeError)
+        assert "Unexpected error" in caplog.text
+        assert "kaboom" in caplog.text
+
+    def test_abort_is_logged(self, caplog):
+        """An aborted run should be logged."""
+        with patch(
+            "java_dependency_analyzer.cli.JarParser.parse",
+            side_effect=click.Abort(),
+        ):
+            with caplog.at_level("ERROR", logger="java_dependency_analyzer.cli"):
+                result = CliRunner().invoke(main, ["jar", "--jar", "a-1.0.jar"])
+
+        assert result.exit_code == 1
+        assert "Aborted" in caplog.text

@@ -1,4 +1,4 @@
-# Java Dependency Analyzer 1.5.0
+# Java Dependency Analyzer 1.6.0
 
 > A Python CLI tool that inspects Java dependency hierarchies in Maven and Gradle projects and reports known vulnerabilities.
 
@@ -33,7 +33,7 @@ poetry install
 jda [--version] <COMMAND> [OPTIONS] [FILE]
 ```
 
-`COMMAND` is one of `gradle`, `maven`, or `sbom`.
+`COMMAND` is one of `gradle`, `maven`, `sbom`, or `jar`.
 
 ### Global options
 
@@ -79,6 +79,23 @@ jda sbom [OPTIONS] FILE
 |---|---|---|---|---|
 | `--standard` | `-s` | No | `cyclonedx` | SBOM standard of the input file: `spdx` or `cyclonedx` (case-insensitive). |
 
+### jar
+
+```
+jda jar [OPTIONS] FILE
+```
+
+`FILE` is a text file listing jar files, one per line. Each entry is an absolute path or a jar file name; blank lines and lines starting with `#` are ignored.
+
+The Maven coordinates of each jar are identified through the Maven Central search API. When `--group-mapping` is given and the artifact parsed from the `<artifact>-<version>.jar` file name is in the mapping, it is searched under each mapped group (in file order) first. Otherwise (or when the mapping finds nothing) the best match is used: when the jar exists on disk (absolute path, or a relative name found beside the list file or in the current directory) its SHA-1 checksum is searched first; then the `<artifact>-<version>.jar` file name is searched. When several artifacts match a file name, the first match is used and a warning is logged. Jars that cannot be identified are skipped with a warning.
+
+#### jar-only options
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--jar` | | `false` | Treat `FILE` as a single jar (absolute path or jar file name with extension) instead of a list of jars. |
+| `--group-mapping` | | _(none)_ | Text file with one `<group>:<artifact>` per line (blank lines and lines starting with `#` are ignored). Artifacts listed in it are searched under the mapped group first; the other artifacts use the best match. |
+
 ### Options (gradle / maven subcommands)
 
 | Option | Short | Default | Description |
@@ -100,6 +117,19 @@ jda sbom [OPTIONS] FILE
 | Option | Short | Default | Description |
 |---|---|---|---|
 | `--standard` | `-s` | `cyclonedx` | SBOM standard of the input file: `spdx` or `cyclonedx`. |
+| `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
+| `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
+| `--no-transitive` | | `false` | Skip transitive dependency resolution; analyse direct dependencies only. |
+| `--verbose` | `-v` | `false` | Print progress messages to the console. |
+| `--rebuild-cache` | | `false` | Delete the vulnerability cache before scanning. |
+| `--cache-ttl` | | `7` | Cache TTL in days. Set to `0` to disable caching. |
+
+### Options (jar subcommand)
+
+| Option | Short | Default | Description |
+|---|---|---|---|
+| `--jar` | | `false` | Treat `FILE` as a single jar instead of a list of jars. |
+| `--group-mapping` | | _(none)_ | File of `<group>:<artifact>` lines used to search mapped artifacts under their group first. |
 | `--output-format` | `-f` | `all` | Report format: `json`, `html`, or `all` (both). |
 | `--output-dir` | `-o` | `./reports` | Directory to write the report file(s) into. |
 | `--no-transitive` | | `false` | Skip transitive dependency resolution; analyse direct dependencies only. |
@@ -261,6 +291,25 @@ Scan an SPDX SBOM file and write an HTML report to a custom directory:
 jda sbom --standard spdx sbom.spdx.json -f html -o reports/
 ```
 
+Scan every jar listed in a file (one absolute path or jar file name per line):
+
+```bash
+jda jar jars.txt
+```
+
+Scan a single jar by absolute path, or by file name only (looked up on Maven Central):
+
+```bash
+jda jar --jar /path/to/log4j-core-2.14.1.jar
+jda jar --jar log4j-core-2.14.1.jar
+```
+
+Scan jars, searching the artifacts listed in a mapping file (`<group>:<artifact>` per line) under their group first:
+
+```bash
+jda jar --group-mapping groups.txt jars.txt
+```
+
 ## Configuration
 
 | Environment Variable | Required | Default | Description |
@@ -269,7 +318,8 @@ jda sbom --standard spdx sbom.spdx.json -f html -o reports/
 | `GHSA_API_URL` | No | `https://api.github.com/advisories` | Override the GitHub Advisory Database REST API endpoint used by `GhsaScanner`. Useful for proxies or air-gapped mirrors. |
 | `OSV_QUERY_URL` | No | `https://api.osv.dev/v1/query` | Override the OSV.dev single-query endpoint used by `OsvScanner`. |
 | `OSV_VULN_URL` | No | `https://osv.dev/vulnerability/` | Override the OSV.dev vulnerability detail base URL embedded in reports. |
-| `MAVEN_CENTRAL_URL` | No | `https://repo1.maven.org/maven2` | Override the Maven Central repository URL used by `TransitiveResolver` to fetch POM files. |
+| `MAVEN_CENTRAL_URL` | No | `https://maven-central.storage-download.googleapis.com/maven2` | Override the Maven Central repository URL used by `TransitiveResolver` to fetch POM files. |
+| `MAVEN_SEARCH_URL` | No | `https://central.sonatype.com/solrsearch/select` | Override the Maven Central search endpoint used by `JarCoordinateResolver` to identify jars. |
 | `JDA_CONFIG_DIR` | No | _(none)_ | Directory used to store and load a custom `logging.ini`. On first run, the bundled `logging.ini` is seeded into this directory. If not set, the bundled config is loaded directly from the package. |
 
 Set it in your shell or in a `.env` file in the working directory before running `jda`:
@@ -310,7 +360,8 @@ graph TD
     Parser --> MavenDepTreeParser
     Parser --> GradleDepTreeParser
     Parser --> SbomParser
-    CLI --> Resolver["TransitiveResolver<br/>(Maven Central)"]
+    Parser --> JarParser
+    JarParser --> JarResolver["JarCoordinateResolver<br/>(Maven Central search)"]    CLI --> Resolver["TransitiveResolver<br/>(Maven Central)"]
     CLI --> Scanner["VulnerabilityScanner (ABC)"]
     Scanner --> OsvScanner["OsvScanner<br/>(OSV.dev API)"]
     Scanner --> GhsaScanner["GhsaScanner<br/>(GitHub Advisory DB)"]
@@ -324,7 +375,7 @@ graph TD
     MavenDepTreeParser --> Dependency
     GradleDepTreeParser --> Dependency
     SbomParser --> Dependency
-    Resolver --> Dependency
+    JarResolver --> Dependency    Resolver --> Dependency
     OsvScanner --> Dependency
     GhsaScanner --> Dependency
     JsonReporter --> ScanResult["ScanResult"]
@@ -336,13 +387,17 @@ graph TD
 
 | Component | Location | Responsibility |
 |---|---|---|
-| CLI | `java_dependency_analyzer/cli.py` | Entry point (`gradle` / `maven` / `sbom` subcommands); orchestrates parsing, resolving, scanning, and reporting. |
+| CLI | `java_dependency_analyzer/cli.py` | Entry point (`gradle` / `maven` / `sbom` / `jar` subcommands); orchestrates parsing, resolving, scanning, and reporting. |
 | `MavenParser` | `parsers/maven_parser.py` | Parses `pom.xml`, resolves `${property}` placeholders, filters by runtime scope. |
 | `GradleParser` | `parsers/gradle_parser.py` | Parses Groovy DSL (`build.gradle`) and Kotlin DSL (`build.gradle.kts`) files. |
 | `MavenDepTreeParser` | `parsers/maven_dep_tree_parser.py` | Parses `mvn dependency:tree` text output into a full dependency tree. |
 | `GradleDepTreeParser` | `parsers/gradle_dep_tree_parser.py` | Parses `gradle dependencies` text output into a full dependency tree. |
 | `SbomParser` | `parsers/sbom_parser.py` | Parses SBOM JSON files in SPDX 2.3 or CycloneDX 1.6 format; extracts Maven dependencies via package URLs (`pkg:maven/…`). |
 | `TransitiveResolver` | `resolvers/transitive.py` | Fetches transitive dependencies by downloading POM files from Maven Central. |
+| `JarParser` | `parsers/jar_parser.py` | Reads a text file listing jars (or a single jar with `--jar`) and returns the resolved dependencies. |
+| `JarCoordinateResolver` | `resolvers/jar_resolver.py` | Identifies a jar's Maven coordinates via the Maven Central search API, by mapped group (`--group-mapping`), SHA-1 checksum, or file name. |
+| `group_mapping` | `util/group_mapping.py` | `load_group_mapping()` reads the `<group>:<artifact>` mapping file used by `--group-mapping`. |
+| `LoggingGroup` | `util/logging_group.py` | Click group that writes every command-line error to the log. |
 | `OsvScanner` | `scanners/osv_scanner.py` | Queries the [OSV.dev](https://osv.dev/) batch API for known CVEs. |
 | `GhsaScanner` | `scanners/ghsa_scanner.py` | Queries the [GitHub Advisory Database](https://github.com/advisories) REST API for security advisories; automatically falls back to OSV when rate-limited (HTTP 403/429). |
 | `VulnerabilityCache` | `cache/vulnerability_cache.py` | SQLite-backed cache for raw vulnerability API payloads with configurable TTL. |

@@ -130,9 +130,7 @@ class TestSetupLogger:
         setup_logger("test.rich")
         assert any(isinstance(h, RichHandler) for h in root.handlers)
 
-    def test_setup_logger_repeated_calls_single_rich_handler(
-        self, monkeypatch
-    ):
+    def test_setup_logger_repeated_calls_single_rich_handler(self, monkeypatch):
         """Calling setup_logger multiple times should not duplicate RichHandlers."""
         monkeypatch.delenv("JDA_CONFIG_DIR", raising=False)
         root = logging.getLogger()

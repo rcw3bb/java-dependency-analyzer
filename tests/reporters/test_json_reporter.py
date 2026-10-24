@@ -10,6 +10,7 @@ Tests for the JsonReporter.
 import json
 from pathlib import Path
 
+from java_dependency_analyzer import __app_name__, __version__
 from java_dependency_analyzer.models.dependency import Dependency, Vulnerability
 from java_dependency_analyzer.models.report import ScanResult
 from java_dependency_analyzer.reporters.json_reporter import JsonReporter
@@ -52,6 +53,14 @@ class TestJsonReporter:
         assert "summary" in data
         assert "total_dependencies" in data["summary"]
         assert "total_vulnerabilities" in data["summary"]
+
+    def test_report_version(self, tmp_path):
+        """JSON must record the package version."""
+        out = tmp_path / "report.json"
+        JsonReporter().report(_make_result(), str(out))
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["app_name"] == __app_name__
+        assert data["version"] == __version__
 
     def test_report_source_file(self, tmp_path):
         """JSON must record the source_file."""

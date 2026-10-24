@@ -17,6 +17,8 @@ import httpx
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
 
+_BASE = "https://maven-central.storage-download.googleapis.com/maven2"
+
 _SIMPLE_POM = b"""<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <groupId>com.example</groupId>
@@ -72,12 +74,12 @@ class TestTransitiveResolver:
     def test_resolve_adds_transitive_deps(self, httpx_mock: HTTPXMock):
         """Resolver should fetch POM and populate transitive_dependencies."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/org/apache/logging/log4j/log4j-core/2.14.1/log4j-core-2.14.1.pom",
+            url=f"{_BASE}/org/apache/logging/log4j/log4j-core/2.14.1/log4j-core-2.14.1.pom",
             content=_SIMPLE_POM,
         )
         # The resolver will recursively try to fetch the transitive dep's POM
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
+            url=f"{_BASE}/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
         dep = Dependency(
@@ -95,7 +97,7 @@ class TestTransitiveResolver:
     def test_resolve_skips_test_scope(self, httpx_mock: HTTPXMock):
         """Transitive deps with test scope should not be added."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/parent/1.0.0/parent-1.0.0.pom",
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
             content=_POM_WITH_TEST_SCOPE,
         )
         dep = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0")
@@ -108,7 +110,7 @@ class TestTransitiveResolver:
     def test_resolve_skips_optional(self, httpx_mock: HTTPXMock):
         """Optional transitive deps should not be added."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/parent/1.0.0/parent-1.0.0.pom",
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
             content=_POM_OPTIONAL,
         )
         dep = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0")
@@ -121,12 +123,12 @@ class TestTransitiveResolver:
     def test_resolve_uses_cache(self, httpx_mock: HTTPXMock):
         """Second resolve call for same artifact should not make a second HTTP request."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/parent/1.0.0/parent-1.0.0.pom",
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
             content=_SIMPLE_POM,
         )
         # Resolver recurses into commons-lang3 during dep1 resolution
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
+            url=f"{_BASE}/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
         dep1 = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0")
@@ -143,7 +145,7 @@ class TestTransitiveResolver:
     def test_resolve_404_returns_no_children(self, httpx_mock: HTTPXMock):
         """404 from Maven Central should result in no transitive dependencies."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/missing/1.0.0/missing-1.0.0.pom",
+            url=f"{_BASE}/com/example/missing/1.0.0/missing-1.0.0.pom",
             status_code=404,
         )
         dep = Dependency(group_id="com.example", artifact_id="missing", version="1.0.0")
@@ -156,11 +158,11 @@ class TestTransitiveResolver:
     def test_resolve_all(self, httpx_mock: HTTPXMock):
         """resolve_all should process each dependency in the list."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/a/1.0/a-1.0.pom",
+            url=f"{_BASE}/com/example/a/1.0/a-1.0.pom",
             status_code=404,
         )
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/b/2.0/b-2.0.pom",
+            url=f"{_BASE}/com/example/b/2.0/b-2.0.pom",
             status_code=404,
         )
         deps = [
@@ -178,12 +180,12 @@ class TestTransitiveResolver:
         # Responding to all calls with the same self-referencing POM would loop infinitely
         # without depth guard; the test passes if it terminates
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/deep/1.0/deep-1.0.pom",
+            url=f"{_BASE}/com/example/deep/1.0/deep-1.0.pom",
             content=_SIMPLE_POM,
         )
         # commons-lang3 at depth 1 fetches its own POM
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
+            url=f"{_BASE}/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
         dep = Dependency(group_id="com.example", artifact_id="deep", version="1.0")
@@ -195,10 +197,10 @@ class TestTransitiveResolver:
         assert dep.transitive_dependencies is not None
 
     def test_network_error_returns_no_children(self, httpx_mock: HTTPXMock):
-        """Network error on POM fetch should not crash; returns empty transitive list."""
+        """Network error should not crash; returns empty list."""
         httpx_mock.add_exception(
             httpx.ConnectError("timeout"),
-            url="https://repo1.maven.org/maven2/com/example/err/1.0/err-1.0.pom",
+            url=f"{_BASE}/com/example/err/1.0/err-1.0.pom",
         )
         dep = Dependency(group_id="com.example", artifact_id="err", version="1.0")
         with httpx.Client() as client:
@@ -207,14 +209,41 @@ class TestTransitiveResolver:
 
         assert dep.transitive_dependencies == []
 
+    def test_throttled_response_returns_no_children(self, httpx_mock: HTTPXMock):
+        """A throttled response (404 with Retry-After) should yield no children."""
+        httpx_mock.add_response(
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
+            status_code=404,
+            headers={"Retry-After": "86400"},
+        )
+        dep = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0")
+        with httpx.Client() as client:
+            TransitiveResolver(client=client).resolve(dep)
+
+        assert dep.transitive_dependencies == []
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_server_error_returns_no_children(self, httpx_mock: HTTPXMock):
+        """A 5xx response should yield no children."""
+        httpx_mock.add_response(
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
+            status_code=503,
+        )
+        dep = Dependency(group_id="com.example", artifact_id="parent", version="1.0.0")
+        with httpx.Client() as client:
+            TransitiveResolver(client=client).resolve(dep)
+
+        assert dep.transitive_dependencies == []
+        assert len(httpx_mock.get_requests()) == 1
+
     def test_transitive_child_depth_set(self, httpx_mock: HTTPXMock):
         """Transitive children should have depth = parent_depth + 1."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/parent/1.0.0/parent-1.0.0.pom",
+            url=f"{_BASE}/com/example/parent/1.0.0/parent-1.0.0.pom",
             content=_SIMPLE_POM,
         )
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
+            url=f"{_BASE}/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom",
             status_code=404,
         )
         dep = Dependency(
@@ -251,11 +280,11 @@ class TestTransitiveResolver:
   </dependencies>
 </project>"""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/a/1.0/a-1.0.pom",
+            url=f"{_BASE}/com/example/a/1.0/a-1.0.pom",
             content=pom_a,
         )
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/b/1.0/b-1.0.pom",
+            url=f"{_BASE}/com/example/b/1.0/b-1.0.pom",
             content=pom_b,
         )
         dep = Dependency(group_id="com.example", artifact_id="a", version="1.0")
@@ -275,7 +304,7 @@ class TestTransitiveResolver:
     def test_resolve_all_shared_visited_skips_duplicates(self, httpx_mock: HTTPXMock):
         """resolve_all should skip a dependency already visited in a prior branch."""
         httpx_mock.add_response(
-            url="https://repo1.maven.org/maven2/com/example/a/1.0/a-1.0.pom",
+            url=f"{_BASE}/com/example/a/1.0/a-1.0.pom",
             status_code=404,
         )
         dep1 = Dependency(group_id="com.example", artifact_id="a", version="1.0")

@@ -7,6 +7,7 @@ Tests for the HtmlReporter.
 :since: 1.0.0
 """
 
+from java_dependency_analyzer import __version__
 from java_dependency_analyzer.models.dependency import Dependency, Vulnerability
 from java_dependency_analyzer.models.report import ScanResult
 from java_dependency_analyzer.reporters.html_reporter import HtmlReporter
@@ -27,6 +28,13 @@ def _make_result(with_vuln: bool = False) -> ScanResult:
 
 class TestHtmlReporter:
     """Tests for HtmlReporter."""
+
+    def test_report_footer_uses_package_version(self, tmp_path):
+        """Footer should show the version exposed by the package __init__."""
+        out = tmp_path / "report.html"
+        HtmlReporter().report(_make_result(), str(out))
+        content = out.read_text(encoding="utf-8")
+        assert f"Java Dependency Analyzer v{__version__}" in content
 
     def test_report_creates_file(self, tmp_path):
         """report() should create an HTML file at the given path."""
