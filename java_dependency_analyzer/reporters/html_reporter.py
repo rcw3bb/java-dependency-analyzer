@@ -11,6 +11,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from .. import __version__
 from ..models.dependency import Dependency
 from ..models.report import ScanResult
 from ..util.logger import setup_logger
@@ -56,7 +57,10 @@ class HtmlReporter(Reporter):
             all_deps, result.vulnerable_dependencies
         )
         html = template.render(
-            result=result, all_deps=all_deps, vuln_scopes=vuln_scopes
+            result=result,
+            all_deps=all_deps,
+            vuln_scopes=vuln_scopes,
+            version=__version__,
         )
 
         _logger.info("Writing HTML report to %s", output_path)

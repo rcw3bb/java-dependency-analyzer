@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.6.0 - 2026-10-07
+### Added
+- `jar` subcommand: scan jar files for known dependency vulnerabilities. `FILE` is a text file listing jars (absolute paths or jar file names, one per line); with `--jar`, `FILE` is a single jar.
+- `JarCoordinateResolver`: identifies the Maven coordinates of a jar through the Maven Central search API, using the file SHA-1 when the file exists and the `<artifact>-<version>.jar` file name otherwise.
+- `JarParser`: reads a jar list (or a single jar) and returns the resolved dependencies.
+- `TransitiveResolver` logs a warning instead of silently returning no transitive dependencies when `repo1.maven.org` fails or throttles requests. `MAVEN_CENTRAL_URL` now defaults to the Maven Central mirror `https://maven-central.storage-download.googleapis.com/maven2`; there is no separate mirror fallback.
+- `--group-mapping` option for the `jar` subcommand: a file of `<group>:<artifact>` lines. Artifacts in the mapping are searched under their mapped group first (several groups are tried in file order); artifacts that are not mapped, or not found under their mapped group, use the best match.
+- `util/group_mapping.py` (`load_group_mapping`) and `util/logging_group.py` (`LoggingGroup`, moved out of `cli.py` to keep it under the module line limit).
+- `__app_name__` in the main package (moved from `cli.py`) and an `app_name` field in the JSON report.
+- `JarCoordinateResolver` prefers the coordinates that match the jar file name when a checksum matches several (e.g. `log4j-api` 2.2 vs 2.20.0).
+- `JarCoordinateResolver` defaults to `central.sonatype.com/solrsearch/select`, because `search.maven.org` intermittently timed out or returned no results for existing artifacts.
+- All CLI errors (usage and command errors such as `File not found`, aborted runs and unexpected exceptions) are now written to the log in addition to being printed.
+- `JarCoordinateResolver` retries transient Maven Central failures (connection resets, timeouts, HTTP 429/5xx) up to 4 attempts with a growing delay.
+- `MAVEN_SEARCH_URL` environment variable to override the Maven Central search endpoint.
+
 ## 1.5.0 - 2026-04-26
 ### Added
 - `--version` global option on the `jda` command: prints the installed version and exits.

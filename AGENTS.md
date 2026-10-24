@@ -1,6 +1,6 @@
 ## Purpose
 
-This repo is **Java Dependency Analyzer** (v1.5.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
+This repo is **Java Dependency Analyzer** (v1.6.0), a Python CLI tool that inspects Java dependency hierarchies. Built with Python ^3.14 and managed via Poetry 2.1.1 using PEP 621 config (`pyproject.toml`). Author: Ron Webb <ron@ronella.xyz>; main package: `java_dependency_analyzer`.
 
 - Install deps: `poetry install`
 - Run tests + coverage: `poetry run pytest --cov=java_dependency_analyzer tests --cov-report html`
@@ -11,7 +11,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 ## Tree
 
 - `java_dependency_analyzer/` — main package; all new modules go here
-- `java_dependency_analyzer/util/` — utility sub-package
+- `java_dependency_analyzer/util/` — utility sub-package (includes `group_mapping.py` for `--group-mapping` files and `logging_group.py` for the Click logging group)
 - `java_dependency_analyzer/models/` — data model sub-package
 - `java_dependency_analyzer/parsers/` — parser sub-package
 - `java_dependency_analyzer/resolvers/` — resolver sub-package
@@ -24,6 +24,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - `tests/` — test package mirroring the main package structure; all tests go here
 - `tests/conftest.py` — global pytest fixtures; activates `httpx_mock` for every test to block all real HTTP calls
 - `tests/util/test_logger.py` — tests for `util/logger.py` (JDA_CONFIG_DIR logic, RichHandler idempotency)
+- `tests/util/test_group_mapping.py` — tests for `util/group_mapping.py`
 - `tests/fixtures/` — sample fixture files for parsers and CLI tests
 - `pyproject.toml` — Poetry PEP 621 project config; use `poetry add` / `poetry add --dev`; `include` points to `java_dependency_analyzer/logging.ini`
 - `LICENSE` — MIT License
@@ -52,7 +53,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - For environment variables, use `python-dotenv`; never hardcode secrets
 - Never modify `.pylintrc` without approval; linter score must remain 10/10
 - When creating or discovering new files, update the Tree section above
-- On every version bump: the version in `pyproject.toml`, the title of `README.md`, the first entry in `CHANGELOG.md`, the version in the Purpose section of `AGENTS.md`, and the footer version in `java_dependency_analyzer/reporters/templates/report.html` must all match
+- On every version bump: the version in `pyproject.toml`, the title of `README.md`, the first entry in `CHANGELOG.md` and the version in the Purpose section of `AGENTS.md` must all match; the `report.html` footer version is rendered from `java_dependency_analyzer.__version__`
 
 ## Note-taking
 
@@ -69,3 +70,6 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - `logging.ini` bundled in the package should have **only** `fileHandler` — `RichHandler` added programmatically in `util/logger.py` owns all console output (learned 2026-04-20).
 - When `JDA_CONFIG_DIR` is not set, `setup_logger` loads the bundled `logging.ini` directly from the package via `importlib.resources`; no cwd walk-up (learned 2026-04-21).
 - When adding a 5th positional param to a function that previously had 4, add `# pylint: disable=too-many-positional-arguments,too-many-arguments` on the `def` line (consistent with earlier note, confirmed 2026-04-20).
+- The Maven Central search API (`central.sonatype.com/solrsearch/select`) supports checksum (`1:`) and `a:`/`v:` queries; `JarCoordinateResolver` uses it and is overridable via `MAVEN_SEARCH_URL`. `search.maven.org` was flaky (timeouts, empty results for existing artifacts), so it is not the default (learned 2026-10-07).
+- `cli.py` is at pylint's 1000-line module limit (`.pylintrc` must not change); put new helpers/classes in `util/` instead, as done with `LoggingGroup` (learned 2026-10-25).
+- `MAVEN_CENTRAL_URL` defaults to the googleapis mirror (`maven-central.storage-download.googleapis.com`); there is no separate mirror env var, so tests mock that host (learned 2026-10-25).

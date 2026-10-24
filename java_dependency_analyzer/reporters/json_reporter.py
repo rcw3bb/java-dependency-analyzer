@@ -10,6 +10,7 @@ Writes vulnerability scan results to a JSON file.
 import json
 from dataclasses import asdict
 
+from .. import __app_name__, __version__
 from ..models.report import ScanResult
 from ..util.logger import setup_logger
 from .base import Reporter
@@ -36,6 +37,8 @@ class JsonReporter(Reporter):
         :since: 1.0.0
         """
         data = {
+            "app_name": __app_name__,
+            "version": __version__,
             "source_file": result.source_file,
             "scanned_at": result.scanned_at,
             "project_dir": result.project_dir,

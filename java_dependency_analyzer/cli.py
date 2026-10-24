@@ -19,7 +19,7 @@ import click
 from rich.console import Console
 from rich.status import Status
 
-from . import __version__
+from . import __app_name__, __version__
 from .cache.db import delete_database
 from .cache.vulnerability_cache import VulnerabilityCache
 from .models.dependency import Dependency
@@ -27,15 +27,19 @@ from .models.report import ScanResult
 from .parsers.base import DependencyParser
 from .parsers.gradle_dep_tree_parser import GradleDepTreeParser
 from .parsers.gradle_parser import GradleParser
+from .parsers.jar_parser import JarParser
 from .parsers.maven_dep_tree_parser import MavenDepTreeParser
 from .parsers.maven_parser import MavenParser
 from .parsers.sbom_parser import SbomParser
 from .reporters.html_reporter import HtmlReporter
 from .reporters.json_reporter import JsonReporter
+from .resolvers.jar_resolver import JarCoordinateResolver
 from .resolvers.transitive import TransitiveResolver
 from .scanners.ghsa_scanner import GhsaScanner
 from .scanners.osv_scanner import OsvScanner
+from .util.group_mapping import load_group_mapping
 from .util.logger import setup_logger
+from .util.logging_group import LoggingGroup
 
 __author__ = "Ron Webb"
 __since__ = "1.0.0"
@@ -46,10 +50,10 @@ EXIT_VULNERABILITIES_FOUND = 10
 """Exit status returned when vulnerabilities are detected."""
 
 # ---------------------------------------------------------------------------
-# Shared CLI options applied to both subcommands
+# Shared CLI options applied to the subcommands
 # ---------------------------------------------------------------------------
 
-_COMMON_OPTIONS = [
+_REPORT_OPTIONS = [
     click.option(
         "--output-format",
         "-f",
@@ -92,6 +96,9 @@ _COMMON_OPTIONS = [
         type=int,
         help="Cache TTL in days. Set to 0 to disable caching.",
     ),
+]
+
+_PROJECT_OPTIONS = [
     click.option(
         "--project",
         "-p",
@@ -133,11 +140,21 @@ _COMMON_OPTIONS = [
 ]
 
 
-def _common_options(func):
-    """Apply all shared options to a Click command."""
-    for option in reversed(_COMMON_OPTIONS):
+def _apply_options(func, options):
+    """Apply the given Click *options* to a Click command."""
+    for option in reversed(options):
         func = option(func)
     return func
+
+
+def _report_options(func):
+    """Apply the scan and report options shared by every subcommand."""
+    return _apply_options(func, _REPORT_OPTIONS)
+
+
+def _common_options(func):
+    """Apply all shared options to a Click command."""
+    return _apply_options(func, _REPORT_OPTIONS + _PROJECT_OPTIONS)
 
 
 # ---------------------------------------------------------------------------
@@ -145,15 +162,15 @@ def _common_options(func):
 # ---------------------------------------------------------------------------
 
 
-@click.group()
+@click.group(cls=LoggingGroup)
 @click.version_option(
     version=__version__,
-    prog_name="Java Dependency Analyzer",
+    prog_name=__app_name__,
     message="%(prog)s %(version)s",
 )
 def main() -> None:
     """Java Dependency Analyzer -- inspect Java dependency trees for known vulnerabilities."""
-    _logger.info("Java Dependency Analyzer v%s", __version__)
+    _logger.info("%s v%s", __app_name__, __version__)
 
 
 # ---------------------------------------------------------------------------
@@ -355,48 +372,7 @@ def maven(  # pylint: disable=too-many-arguments,too-many-positional-arguments,t
     show_default=True,
     help="SBOM standard of the input file (spdx or cyclonedx).",
 )
-@click.option(
-    "--output-format",
-    "-f",
-    type=click.Choice(["json", "html", "all"], case_sensitive=False),
-    default="all",
-    show_default=True,
-    help="Output format for the vulnerability report.",
-)
-@click.option(
-    "--output-dir",
-    "-o",
-    default="./reports",
-    show_default=True,
-    type=click.Path(file_okay=False),
-    help="Directory to write the report file(s) into.",
-)
-@click.option(
-    "--no-transitive",
-    is_flag=True,
-    default=False,
-    help="Skip transitive dependency resolution.",
-)
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    default=False,
-    help="Enable verbose progress output.",
-)
-@click.option(
-    "--rebuild-cache",
-    is_flag=True,
-    default=False,
-    help="Delete the vulnerability cache database before scanning.",
-)
-@click.option(
-    "--cache-ttl",
-    default=7,
-    show_default=True,
-    type=int,
-    help="Cache TTL in days. Set to 0 to disable caching.",
-)
+@_report_options
 @click.argument(
     "file",
     required=True,
@@ -437,6 +413,94 @@ def sbom(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         found = _run_analysis(
             parsed_deps,
             source_file=str(file_path),
+            output_format=output_format,
+            output_dir=output_dir,
+            no_transitive=no_transitive,
+            verbose=verbose,
+            cache=cache,
+        )
+    finally:
+        if cache is not None:
+            cache.close()
+
+    if found:
+        sys.exit(EXIT_VULNERABILITIES_FOUND)
+
+
+# ---------------------------------------------------------------------------
+# jar subcommand
+# ---------------------------------------------------------------------------
+
+
+@main.command("jar")
+@click.option(
+    "--jar",
+    "jar_mode",
+    is_flag=True,
+    default=False,
+    help=(
+        "Treat FILE as a single jar (absolute path or file name with extension) "
+        "instead of a file that lists jar files."
+    ),
+)
+@_report_options
+@click.option(
+    "--group-mapping",
+    "group_mapping",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help=(
+        "File with one <group>:<artifact> per line. Artifacts found in it are "
+        "searched under the mapped group first; other artifacts use the best match."
+    ),
+)
+@click.argument("file", required=True, type=click.Path(dir_okay=False))
+def jar(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    jar_mode: bool,
+    output_format: str,
+    output_dir: str,
+    no_transitive: bool,
+    verbose: bool,
+    rebuild_cache: bool,
+    cache_ttl: int,
+    group_mapping: str | None,
+    file: str,
+) -> None:
+    """
+    Scan jar files for known dependency vulnerabilities.
+
+    FILE is a text file listing jar files, one per line (absolute path or jar
+    file name). With --jar, FILE is a single jar (absolute path or jar file
+    name with extension). The Maven coordinates of each jar are identified
+    through Maven Central, using the file checksum when the file exists and
+    the file name otherwise. With --group-mapping, artifacts listed in the
+    mapping file (one <group>:<artifact> per line) are searched under their
+    mapped group first; the best match is used for the other artifacts.
+
+    :author: Ron Webb
+    :since: 1.6.0
+    """
+    if not jar_mode and not Path(file).is_file():
+        raise click.UsageError(f"File not found: {file}")
+    if jar_mode and not file.lower().endswith(".jar"):
+        raise click.UsageError(f"Unsupported file: {file}. FILE must be a .jar file.")
+
+    if verbose:
+        kind = "jar" if jar_mode else "jar list"
+        click.echo(f"Resolving {kind} {Path(file).name} through Maven Central...")
+
+    mapping = load_group_mapping(group_mapping) if group_mapping else None
+    cache = _init_cache(rebuild_cache, cache_ttl, verbose)
+
+    try:
+        parser = JarParser(
+            single_jar=jar_mode,
+            resolver=JarCoordinateResolver(group_mapping=mapping),
+        )
+        parsed_deps = parser.parse(file)
+        found = _run_analysis(
+            parsed_deps,
+            source_file=file,
             output_format=output_format,
             output_dir=output_dir,
             no_transitive=no_transitive,

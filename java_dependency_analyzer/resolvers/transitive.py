@@ -27,7 +27,10 @@ load_dotenv()
 
 _logger = setup_logger(__name__)
 
-_MAVEN_CENTRAL = os.getenv("MAVEN_CENTRAL_URL", "https://repo1.maven.org/maven2")
+_MAVEN_CENTRAL = os.getenv(
+    "MAVEN_CENTRAL_URL",
+    "https://maven-central.storage-download.googleapis.com/maven2",
+)
 # Maximum depth for transitive dependency resolution.
 # Prevents infinite recursion and excessive network requests.
 _MAX_DEPTH = 5
@@ -103,8 +106,7 @@ class TransitiveResolver:
             ]
             return dependency
 
-        pom_url = self._pom_url(dependency)
-        pom_content = self._fetch_pom(pom_url)
+        pom_content = self._fetch_pom(self._pom_urls(dependency))
         if pom_content is None:
             return dependency
 
@@ -134,32 +136,60 @@ class TransitiveResolver:
             self.resolve(dep, depth=0, _visited=visited)
         return dependencies
 
-    def _pom_url(self, dep: Dependency) -> str:
+    def _pom_urls(self, dep: Dependency) -> list[str]:
         """
-        Build the Maven Central POM URL for the given dependency.
+        Build the POM URLs for the given dependency.
 
         :author: Ron Webb
         :since: 1.0.0
         """
-        return (
-            f"{_MAVEN_CENTRAL}/{dep.maven_path}" f"/{dep.artifact_id}-{dep.version}.pom"
-        )
+        path = f"{dep.maven_path}/{dep.artifact_id}-{dep.version}.pom"
+        return [f"{_MAVEN_CENTRAL}/{path}"]
 
-    def _fetch_pom(self, url: str) -> bytes | None:
+    def _fetch_pom(self, urls: list[str]) -> bytes | None:
         """
-        Fetch the POM file at the given URL; return raw bytes or None on failure.
+        Fetch the POM from the first of *urls* that serves it; return raw bytes or None.
+
+        A genuine 404 is final.  Network errors, HTTP 429/5xx and throttled
+        responses (any response carrying ``Retry-After``) are logged as warnings
+        and move on to the next URL, if any.
 
         :author: Ron Webb
         :since: 1.0.0
         """
-        try:
-            response = self._client.get(url)
+        for url in urls:
+            try:
+                response = self._client.get(url)
+            except httpx.RequestError as exc:
+                _logger.warning("Network error fetching POM %s: %s", url, exc)
+                continue
             if response.status_code == 200:
                 return response.content
+            if self._is_transient_failure(response):
+                _logger.warning(
+                    "POM fetch failed or was throttled (HTTP %d, Retry-After: %s): %s",
+                    response.status_code,
+                    response.headers.get("Retry-After", "n/a"),
+                    url,
+                )
+                continue
             _logger.debug("POM not found (HTTP %d): %s", response.status_code, url)
-        except httpx.RequestError as exc:
-            _logger.warning("Network error fetching POM %s: %s", url, exc)
+            return None
         return None
+
+    @staticmethod
+    def _is_transient_failure(response: httpx.Response) -> bool:
+        """
+        Return True when *response* indicates a failure worth trying another URL for.
+
+        :author: Ron Webb
+        :since: 1.6.0
+        """
+        return (
+            response.status_code == 429
+            or response.status_code >= 500
+            or "Retry-After" in response.headers
+        )
 
     def _parse_pom_dependencies(
         self, pom_content: bytes, parent: Dependency
