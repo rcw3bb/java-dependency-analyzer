@@ -32,6 +32,7 @@ The linter must always score **10/10**. Minimum test coverage is **80%**.
 - `.pylintrc` — Pylint config based on rcw3bb's gist
 - `.gitignore` — excludes IDE files, `__pycache__`, `.env`, log files, `htmlcov/`; preserves `poetry.lock`
 - `.gitattributes` — enforces LF line endings for non-Windows files
+- `.github/workflows/publish.yml` — on push to `main`: runs tests, then builds and publishes to PyPI with `poetry publish --build` (needs the `PYPI_TOKEN` secret)
 - `CHANGELOG.md` — follows Keep a Changelog format; update on every release
 - `README.md` — project overview, requirements, setup, and usage
 - `poetry.toml` — Poetry local config; enables in-project virtualenv creation
